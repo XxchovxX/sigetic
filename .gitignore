@@ -1,0 +1,40 @@
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Visual Studio / .NET
+.vs/
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Variables y secretos
+.env
+.env.*
+!.env.example
+!.env.web.example
+sigetic-web/.env.local
+sigetic-web/.env.production
+sigetic-api/src/SIGETIC.Api/appsettings.Production.json
+
+# Backups y dumps
+*.dump
+*.bak
+*.backup
+
+# Publicacion local
+publish/
+sigetic-publish/

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SIGETIC.Api/SIGETIC.Api.csproj" />
+    <Project Path="src/SIGETIC.Application/SIGETIC.Application.csproj" />
+    <Project Path="src/SIGETIC.Domain/SIGETIC.Domain.csproj" />
+    <Project Path="src/SIGETIC.Infrastructure/SIGETIC.Infrastructure.csproj" />
+  </Folder>
+</Solution>

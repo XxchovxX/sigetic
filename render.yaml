@@ -1,0 +1,53 @@
+databases:
+  - name: sigetic-db
+    databaseName: sigetic
+    user: sigetic_app
+    plan: free
+
+services:
+  - type: web
+    name: sigetic-api-san-carlos
+    runtime: docker
+    plan: free
+    rootDir: sigetic-api
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:10000
+      - key: Database__ApplyMigrationsOnStartup
+        value: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sigetic-db
+          property: connectionString
+      - key: Jwt__Issuer
+        value: SIGETIC.Api
+      - key: Jwt__Audience
+        value: SIGETIC.Web
+      - key: Jwt__SecretKey
+        generateValue: true
+      - key: Jwt__ExpirationMinutes
+        value: 480
+      - key: Cors__AllowedOrigins__0
+        value: https://sigetic-web-san-carlos.onrender.com
+
+  - type: web
+    name: sigetic-web-san-carlos
+    runtime: docker
+    plan: free
+    rootDir: sigetic-web
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: NEXT_PUBLIC_API_URL
+        value: https://sigetic-api-san-carlos.onrender.com
+      - key: SIGETIC_INTERNAL_API_URL
+        value: https://sigetic-api-san-carlos.onrender.com
