@@ -231,6 +231,29 @@ public sealed class AdministracionService : IAdministracionService
             usuario.UltimoAccesoUtc);
     }
 
+    public async Task CambiarPasswordUsuarioAsync(
+        Guid id,
+        CambiarPasswordUsuarioRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.NuevoPassword) ||
+            request.NuevoPassword.Length < 8)
+        {
+            throw new ArgumentException(
+                "La nueva contraseÃ±a debe tener mÃ­nimo 8 caracteres.");
+        }
+
+        var usuario = await _dbContext.Usuarios
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+
+        if (usuario is null)
+            throw new KeyNotFoundException("No se encontrÃ³ el usuario solicitado.");
+
+        usuario.CambiarPassword(PasswordHasher.Hash(request.NuevoPassword));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<DependenciaResponse>> GetDependenciasAsync(
         CancellationToken cancellationToken)
     {

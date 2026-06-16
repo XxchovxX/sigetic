@@ -125,6 +125,31 @@ public static class AdministracionEndpoints
             }
         });
 
+        group.MapPatch("/usuarios/{id:guid}/password", async (
+            Guid id,
+            CambiarPasswordUsuarioRequest request,
+            IAdministracionService service,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                await service.CambiarPasswordUsuarioAsync(
+                    id,
+                    request,
+                    cancellationToken);
+
+                return Results.NoContent();
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { message = exception.Message });
+            }
+            catch (KeyNotFoundException exception)
+            {
+                return Results.NotFound(new { message = exception.Message });
+            }
+        });
+
         group.MapGet("/dependencias", async (
             IAdministracionService service,
             CancellationToken cancellationToken) =>

@@ -54,6 +54,10 @@ public sealed record ActualizarUsuarioRequest(
     bool Activo
 );
 
+public sealed record CambiarPasswordUsuarioRequest(
+    string NuevoPassword
+);
+
 public sealed record DependenciaResponse(
     Guid Id,
     string Nombre,

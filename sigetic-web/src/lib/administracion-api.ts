@@ -63,6 +63,10 @@ export type ActualizarUsuarioPayload = {
     activo: boolean;
 };
 
+export type CambiarPasswordUsuarioPayload = {
+    nuevoPassword: string;
+};
+
 export type CrearDependenciaPayload = {
     nombre: string;
     codigo: string;
@@ -113,6 +117,10 @@ async function adminFetch<T>(
         throw new Error(message);
     }
 
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
     return response.json() as Promise<T>;
 }
 
@@ -146,6 +154,16 @@ export async function updateUsuario(
 ): Promise<Usuario> {
     return adminFetch<Usuario>(`/api/administracion/usuarios/${id}`, {
         method: "PUT",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function cambiarPasswordUsuario(
+    id: string,
+    payload: CambiarPasswordUsuarioPayload
+): Promise<void> {
+    await adminFetch<void>(`/api/administracion/usuarios/${id}/password`, {
+        method: "PATCH",
         body: JSON.stringify(payload),
     });
 }

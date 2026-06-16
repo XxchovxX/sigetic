@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, UsersRound } from "lucide-react";
+import { KeyRound, Plus, UsersRound } from "lucide-react";
 import {
+    cambiarPasswordUsuario,
     createUsuario,
     getRoles,
     getUsuarios,
@@ -16,12 +17,14 @@ export default function UsuariosPage() {
 
     const [nombreCompleto, setNombreCompleto] = useState("");
     const [correo, setCorreo] = useState("");
-    const [password, setPassword] = useState("Temporal123*");
+    const [password, setPassword] = useState("");
     const [rolId, setRolId] = useState("");
+    const [passwords, setPasswords] = useState<Record<string, string>>({});
 
     const [message, setMessage] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [changingPasswordId, setChangingPasswordId] = useState("");
 
     const loadData = useCallback(async () => {
         try {
@@ -69,7 +72,7 @@ export default function UsuariosPage() {
 
             setNombreCompleto("");
             setCorreo("");
-            setPassword("Temporal123*");
+            setPassword("");
             setMessage("Usuario creado correctamente.");
             await loadData();
         } catch (error) {
@@ -80,6 +83,33 @@ export default function UsuariosPage() {
             );
         } finally {
             setIsSubmitting(false);
+        }
+    }
+
+    async function handleCambiarPassword(usuario: Usuario) {
+        const nuevoPassword = passwords[usuario.id] ?? "";
+
+        try {
+            setChangingPasswordId(usuario.id);
+            setMessage("");
+
+            await cambiarPasswordUsuario(usuario.id, {
+                nuevoPassword,
+            });
+
+            setPasswords((current) => ({
+                ...current,
+                [usuario.id]: "",
+            }));
+            setMessage(`ContraseÃ±a actualizada para ${usuario.nombreCompleto}.`);
+        } catch (error) {
+            setMessage(
+                error instanceof Error
+                    ? error.message
+                    : "No fue posible cambiar la contraseÃ±a."
+            );
+        } finally {
+            setChangingPasswordId("");
         }
     }
 
@@ -131,8 +161,10 @@ export default function UsuariosPage() {
                             Contraseña temporal
                         </span>
                         <input
+                            type="password"
                             value={password}
                             onChange={(event) => setPassword(event.target.value)}
+                            placeholder="Define una contraseÃ±a temporal"
                             className={inputClass}
                         />
                     </label>
@@ -199,6 +231,7 @@ export default function UsuariosPage() {
                                     <th className="px-4 py-3">Correo</th>
                                     <th className="px-4 py-3">Rol</th>
                                     <th className="px-4 py-3">Estado</th>
+                                    <th className="px-4 py-3">ContraseÃ±a</th>
                                 </tr>
                             </thead>
 
@@ -223,6 +256,34 @@ export default function UsuariosPage() {
                                             >
                                                 {usuario.activo ? "Activo" : "Inactivo"}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex min-w-[260px] items-center gap-2">
+                                                <input
+                                                    type="password"
+                                                    value={passwords[usuario.id] ?? ""}
+                                                    onChange={(event) =>
+                                                        setPasswords((current) => ({
+                                                            ...current,
+                                                            [usuario.id]: event.target.value,
+                                                        }))
+                                                    }
+                                                    placeholder="Nueva contraseÃ±a"
+                                                    className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-xs outline-none transition focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCambiarPassword(usuario)}
+                                                    disabled={
+                                                        changingPasswordId === usuario.id ||
+                                                        !(passwords[usuario.id] ?? "").trim()
+                                                    }
+                                                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#006b2e] px-3 text-xs font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <KeyRound className="h-4 w-4" />
+                                                    Cambiar
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

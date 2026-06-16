@@ -29,6 +29,11 @@ public interface IAdministracionService
         ActualizarUsuarioRequest request,
         CancellationToken cancellationToken);
 
+    Task CambiarPasswordUsuarioAsync(
+        Guid id,
+        CambiarPasswordUsuarioRequest request,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<DependenciaResponse>> GetDependenciasAsync(
         CancellationToken cancellationToken);
 
