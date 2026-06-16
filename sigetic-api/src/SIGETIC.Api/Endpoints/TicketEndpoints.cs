@@ -55,7 +55,7 @@ public static class TicketEndpoints
 
         group.MapPost("/", async (
             CrearTicketRequest request,
-            ClaimsPrincipal user,
+            HttpContext httpContext,
             ITicketService ticketService,
             CancellationToken cancellationToken) =>
         {
@@ -63,7 +63,7 @@ public static class TicketEndpoints
             {
                 var ticket = await ticketService.CreateAsync(
                     request,
-                    GetActor(user),
+                    GetActor(httpContext.User),
                     cancellationToken);
 
                 return Results.Created($"/api/tickets/{ticket.Id}", ticket);
@@ -80,7 +80,7 @@ public static class TicketEndpoints
         group.MapPatch("/{id:guid}/estado", async (
             Guid id,
             ActualizarEstadoTicketRequest request,
-            ClaimsPrincipal user,
+            HttpContext httpContext,
             ITicketService ticketService,
             CancellationToken cancellationToken) =>
         {
@@ -89,7 +89,7 @@ public static class TicketEndpoints
                 var ticket = await ticketService.UpdateEstadoAsync(
                     id,
                     request,
-                    GetActor(user),
+                    GetActor(httpContext.User),
                     cancellationToken);
 
                 return Results.Ok(ticket);
@@ -114,7 +114,7 @@ public static class TicketEndpoints
         group.MapPatch("/{id:guid}/encuesta", async (
             Guid id,
             RegistrarEncuestaTicketRequest request,
-            ClaimsPrincipal user,
+            HttpContext httpContext,
             ITicketService ticketService,
             CancellationToken cancellationToken) =>
         {
@@ -123,7 +123,7 @@ public static class TicketEndpoints
                 var ticket = await ticketService.RegistrarEncuestaAsync(
                     id,
                     request,
-                    GetActor(user),
+                    GetActor(httpContext.User),
                     cancellationToken);
 
                 return Results.Ok(ticket);
