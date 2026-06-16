@@ -50,6 +50,7 @@ public sealed class TicketService : ITicketService
         CancellationToken cancellationToken)
     {
         ValidateRequest(
+            request.FechaSolicitud,
             request.Solicitante,
             request.Dependencia,
             request.Categoria,
@@ -57,11 +58,19 @@ public sealed class TicketService : ITicketService
             request.Estado,
             request.Descripcion);
 
-        var codigo = await GenerateCodeAsync(request.FechaSolicitud, cancellationToken);
+        DateOnly fechaSolicitud = ParseRequiredDate(
+            request.FechaSolicitud,
+            "La fecha de solicitud no tiene un formato válido.");
+
+        DateOnly? fechaCompromiso = ParseOptionalDate(
+            request.FechaCompromiso,
+            "La fecha de compromiso no tiene un formato válido.");
+
+        var codigo = await GenerateCodeAsync(fechaSolicitud, cancellationToken);
 
         var ticket = new TicketMesaAyuda(
             codigo,
-            request.FechaSolicitud,
+            fechaSolicitud,
             request.Solicitante,
             request.Dependencia,
             request.Categoria,
@@ -71,7 +80,7 @@ public sealed class TicketService : ITicketService
             request.ResponsableAsignado,
             request.EquipoCodigo,
             request.ImpresoraCodigo,
-            request.FechaCompromiso,
+            fechaCompromiso,
             request.Solucion);
 
         _dbContext.TicketsMesaAyuda.Add(ticket);
@@ -258,6 +267,7 @@ public sealed class TicketService : ITicketService
     }
 
     private static void ValidateRequest(
+        string fechaSolicitud,
         string solicitante,
         string dependencia,
         string categoria,
@@ -265,6 +275,9 @@ public sealed class TicketService : ITicketService
         string estado,
         string descripcion)
     {
+        if (string.IsNullOrWhiteSpace(fechaSolicitud))
+            throw new ArgumentException("La fecha de solicitud es obligatoria.");
+
         if (string.IsNullOrWhiteSpace(solicitante))
             throw new ArgumentException("El solicitante es obligatorio.");
 
@@ -282,5 +295,30 @@ public sealed class TicketService : ITicketService
 
         if (string.IsNullOrWhiteSpace(descripcion))
             throw new ArgumentException("La descripción de la solicitud es obligatoria.");
+    }
+
+    private static DateOnly ParseRequiredDate(string value, string errorMessage)
+    {
+        if (!DateOnly.TryParse(value, out DateOnly date))
+        {
+            throw new ArgumentException(errorMessage);
+        }
+
+        return date;
+    }
+
+    private static DateOnly? ParseOptionalDate(string? value, string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (!DateOnly.TryParse(value, out DateOnly date))
+        {
+            throw new ArgumentException(errorMessage);
+        }
+
+        return date;
     }
 }

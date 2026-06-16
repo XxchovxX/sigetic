@@ -1,7 +1,7 @@
 namespace SIGETIC.Application.Tickets;
 
 public sealed record CrearTicketRequest(
-    DateOnly FechaSolicitud,
+    string FechaSolicitud,
     string Solicitante,
     string Dependencia,
     string Categoria,
@@ -11,7 +11,7 @@ public sealed record CrearTicketRequest(
     string? ResponsableAsignado,
     string? EquipoCodigo,
     string? ImpresoraCodigo,
-    DateOnly? FechaCompromiso,
+    string? FechaCompromiso,
     string? Solucion
 );
 
