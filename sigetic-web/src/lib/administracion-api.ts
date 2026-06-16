@@ -100,19 +100,7 @@ async function adminFetch<T>(
     });
 
     if (!response.ok) {
-        let message = "No fue posible completar la solicitud.";
-
-        try {
-            const error = await response.json();
-
-            if (error?.message) {
-                message = error.message;
-            }
-        } catch {
-            if (response.status === 401) {
-                message = "No autorizado. Inicia sesión nuevamente.";
-            }
-        }
+        const message = await getErrorMessage(response);
 
         throw new Error(message);
     }
@@ -122,6 +110,50 @@ async function adminFetch<T>(
     }
 
     return response.json() as Promise<T>;
+}
+
+async function getErrorMessage(response: Response): Promise<string> {
+    if (response.status === 401) {
+        return "No autorizado. Inicia sesión nuevamente.";
+    }
+
+    if (response.status === 403) {
+        return "No tienes permisos para realizar esta acción.";
+    }
+
+    try {
+        const error = await response.clone().json();
+
+        if (typeof error?.message === "string" && error.message.trim()) {
+            return error.message;
+        }
+
+        if (typeof error?.title === "string" && error.title.trim()) {
+            return error.title;
+        }
+
+        if (error?.errors && typeof error.errors === "object") {
+            const validationMessages = Object.values(error.errors)
+                .flat()
+                .filter((value): value is string => typeof value === "string");
+
+            if (validationMessages.length > 0) {
+                return validationMessages.join(" ");
+            }
+        }
+    } catch {
+        const text = await response.text();
+
+        if (text.trim()) {
+            return text;
+        }
+    }
+
+    if (response.status === 409) {
+        return "El registro ya existe o entra en conflicto con información registrada.";
+    }
+
+    return "No fue posible completar la solicitud. Revisa los datos e intenta nuevamente.";
 }
 
 export async function getRoles(): Promise<Rol[]> {

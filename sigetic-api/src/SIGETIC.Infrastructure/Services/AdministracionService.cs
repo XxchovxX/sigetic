@@ -240,14 +240,14 @@ public sealed class AdministracionService : IAdministracionService
             request.NuevoPassword.Length < 8)
         {
             throw new ArgumentException(
-                "La nueva contraseÃ±a debe tener mÃ­nimo 8 caracteres.");
+                "La nueva contraseña debe tener mínimo 8 caracteres.");
         }
 
         var usuario = await _dbContext.Usuarios
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         if (usuario is null)
-            throw new KeyNotFoundException("No se encontrÃ³ el usuario solicitado.");
+            throw new KeyNotFoundException("No se encontró el usuario solicitado.");
 
         usuario.CambiarPassword(PasswordHasher.Hash(request.NuevoPassword));
 

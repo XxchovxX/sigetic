@@ -30,6 +30,7 @@ export default function UsuariosPage() {
     const [passwords, setPasswords] = useState<Record<string, string>>({});
 
     const [message, setMessage] = useState("");
+    const [messageType, setMessageType] = useState<"success" | "error">("success");
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [changingPasswordId, setChangingPasswordId] = useState("");
@@ -51,6 +52,7 @@ export default function UsuariosPage() {
                 setRolId(rolesData[0].id);
             }
         } catch (error) {
+            setMessageType("error");
             setMessage(
                 error instanceof Error
                     ? error.message
@@ -68,6 +70,30 @@ export default function UsuariosPage() {
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
+        if (!nombreCompleto.trim()) {
+            setMessageType("error");
+            setMessage("El nombre completo es obligatorio.");
+            return;
+        }
+
+        if (!correo.trim() || !correo.includes("@")) {
+            setMessageType("error");
+            setMessage("Ingresa un correo válido para el usuario.");
+            return;
+        }
+
+        if (!password.trim() || password.length < 8) {
+            setMessageType("error");
+            setMessage("La contraseña temporal debe tener mínimo 8 caracteres.");
+            return;
+        }
+
+        if (!rolId) {
+            setMessageType("error");
+            setMessage("Selecciona un rol para el usuario.");
+            return;
+        }
+
         try {
             setIsSubmitting(true);
             setMessage("");
@@ -82,9 +108,11 @@ export default function UsuariosPage() {
             setNombreCompleto("");
             setCorreo("");
             setPassword("");
+            setMessageType("success");
             setMessage("Usuario creado correctamente.");
             await loadData();
         } catch (error) {
+            setMessageType("error");
             setMessage(
                 error instanceof Error
                     ? error.message
@@ -102,6 +130,12 @@ export default function UsuariosPage() {
             setChangingPasswordId(usuario.id);
             setMessage("");
 
+            if (!nuevoPassword.trim() || nuevoPassword.length < 8) {
+                setMessageType("error");
+                setMessage("La nueva contraseña debe tener mínimo 8 caracteres.");
+                return;
+            }
+
             await cambiarPasswordUsuario(usuario.id, {
                 nuevoPassword,
             });
@@ -110,8 +144,10 @@ export default function UsuariosPage() {
                 ...current,
                 [usuario.id]: "",
             }));
+            setMessageType("success");
             setMessage(`Contraseña actualizada para ${usuario.nombreCompleto}.`);
         } catch (error) {
+            setMessageType("error");
             setMessage(
                 error instanceof Error
                     ? error.message
@@ -126,6 +162,7 @@ export default function UsuariosPage() {
         const storedUser = getStoredUser();
 
         if (storedUser?.id === usuario.id && usuario.activo) {
+            setMessageType("error");
             setMessage(
                 "No puedes desactivar tu propio usuario mientras tienes la sesión abierta."
             );
@@ -148,8 +185,10 @@ export default function UsuariosPage() {
                     ? `Usuario ${usuario.nombreCompleto} desactivado.`
                     : `Usuario ${usuario.nombreCompleto} reactivado.`
             );
+            setMessageType("success");
             await loadData();
         } catch (error) {
+            setMessageType("error");
             setMessage(
                 error instanceof Error
                     ? error.message
@@ -161,7 +200,7 @@ export default function UsuariosPage() {
     }
 
     return (
-        <div className="grid items-start gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="grid items-start gap-6 xl:grid-cols-[390px_minmax(0,1fr)]">
             <section className="rounded-[1.35rem] border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="mb-5 flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
@@ -234,7 +273,13 @@ export default function UsuariosPage() {
                     </label>
 
                     {message ? (
-                        <div className="rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-[#006b2e]">
+                        <div
+                            className={`rounded-2xl px-4 py-3 text-sm font-bold ${
+                                messageType === "success"
+                                    ? "bg-green-50 text-[#006b2e]"
+                                    : "bg-red-50 text-red-700"
+                            }`}
+                        >
                             {message}
                         </div>
                     ) : null}
