@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IImpresoraService, ImpresoraService>();
         services.AddScoped<IConsumibleService, ConsumibleService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IEmailNotificationService, EmailNotificationService>();
         services.AddScoped<ITicketService, TicketService>();
         services.AddScoped<IAnaliticaService, AnaliticaService>();
 

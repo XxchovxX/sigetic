@@ -8,10 +8,14 @@ namespace SIGETIC.Infrastructure.Services;
 public sealed class TicketService : ITicketService
 {
     private readonly SigeticDbContext _dbContext;
+    private readonly IEmailNotificationService _emailNotificationService;
 
-    public TicketService(SigeticDbContext dbContext)
+    public TicketService(
+        SigeticDbContext dbContext,
+        IEmailNotificationService emailNotificationService)
     {
         _dbContext = dbContext;
+        _emailNotificationService = emailNotificationService;
     }
 
     public async Task<IReadOnlyList<TicketResponse>> GetAllAsync(
@@ -68,7 +72,12 @@ public sealed class TicketService : ITicketService
         _dbContext.TicketsMesaAyuda.Add(ticket);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return ToResponse(ticket);
+        var response = ToResponse(ticket);
+        await _emailNotificationService.NotifyTicketCreatedAsync(
+            response,
+            cancellationToken);
+
+        return response;
     }
 
     public async Task<TicketResponse> UpdateEstadoAsync(
@@ -91,7 +100,12 @@ public sealed class TicketService : ITicketService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return ToResponse(ticket);
+        var response = ToResponse(ticket);
+        await _emailNotificationService.NotifyTicketUpdatedAsync(
+            response,
+            cancellationToken);
+
+        return response;
     }
 
     public async Task<TicketResponse> RegistrarEncuestaAsync(

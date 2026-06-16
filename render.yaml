@@ -34,6 +34,24 @@ services:
         value: 480
       - key: Cors__AllowedOrigins__0
         value: https://sigetic-web-san-carlos.onrender.com
+      - key: Email__Enabled
+        value: false
+      - key: Email__SmtpHost
+        value: ""
+      - key: Email__SmtpPort
+        value: 587
+      - key: Email__SmtpUser
+        value: ""
+      - key: Email__SmtpPassword
+        value: ""
+      - key: Email__FromAddress
+        value: ""
+      - key: Email__FromName
+        value: SIGETIC
+      - key: Email__EnableSsl
+        value: true
+      - key: Email__TicketRecipients
+        value: ""
 
   - type: web
     name: sigetic-web-san-carlos

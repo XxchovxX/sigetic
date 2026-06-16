@@ -121,10 +121,32 @@ Probar:
 - La base de datos gratuita no debe usarse como respaldo oficial de informacion.
 - Para produccion final se recomienda plan pago con backups o VPS economico.
 
+## Notificaciones por correo
+
+SIGETIC puede enviar correos cuando:
+
+- Se crea un ticket.
+- Se actualiza el estado de un ticket.
+
+En Render se configuran variables de entorno en el servicio `sigetic-api-san-carlos`:
+
+```text
+Email__Enabled=true
+Email__SmtpHost=smtp.proveedor.com
+Email__SmtpPort=587
+Email__SmtpUser=USUARIO_SMTP
+Email__SmtpPassword=PASSWORD_SMTP
+Email__FromAddress=sigetic@dominio.com
+Email__FromName=SIGETIC
+Email__EnableSsl=true
+Email__TicketRecipients=admin@correo.com,tecnico@correo.com
+```
+
+No se deben subir credenciales SMTP a GitHub. Deben quedar solo en las variables de entorno de Render.
+
 ## Siguiente paso despues de validar
 
 Si Render funciona bien para la prueba, hay dos caminos:
 
 1. Mantener Render pero pasar a planes pagos con PostgreSQL persistente y backups.
 2. Migrar a un VPS economico con Docker Compose, dominio institucional y backups diarios.
-
