@@ -24,6 +24,20 @@ export type TicketMesaAyuda = {
     fechaEncuestaUtc?: string | null;
     fechaCreacionUtc: string;
     fechaActualizacionUtc?: string | null;
+    eliminado: boolean;
+    fechaEliminacionUtc?: string | null;
+    eliminadoPor?: string | null;
+    historial: TicketHistorial[];
+};
+
+export type TicketHistorial = {
+    id: string;
+    tipoEvento: string;
+    usuario: string;
+    estadoAnterior?: string | null;
+    estadoNuevo?: string | null;
+    detalle?: string | null;
+    fechaEventoUtc: string;
 };
 
 export type CrearTicketPayload = {
@@ -63,24 +77,42 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     });
 
     if (!response.ok) {
-        let message = "No fue posible completar la solicitud de mesa de ayuda.";
-
-        try {
-            const error = await response.json();
-
-            if (error?.message) {
-                message = error.message;
-            }
-        } catch {
-            if (response.status === 401) {
-                message = "No autorizado. Inicia sesión nuevamente.";
-            }
-        }
+        const message = await getErrorMessage(response);
 
         throw new Error(message);
     }
 
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
     return response.json() as Promise<T>;
+}
+
+async function getErrorMessage(response: Response): Promise<string> {
+    if (response.status === 401) {
+        return "No autorizado. Inicia sesión nuevamente.";
+    }
+
+    if (response.status === 403) {
+        return "No tienes permisos para realizar esta acción.";
+    }
+
+    try {
+        const error = await response.clone().json();
+
+        if (typeof error?.message === "string" && error.message.trim()) {
+            return error.message;
+        }
+    } catch {
+        const text = await response.text();
+
+        if (text.trim()) {
+            return text;
+        }
+    }
+
+    return "No fue posible completar la solicitud de mesa de ayuda.";
 }
 
 export async function getTickets(): Promise<TicketMesaAyuda[]> {
@@ -120,5 +152,11 @@ export async function registrarEncuestaTicket(
     return apiFetch<TicketMesaAyuda>(`/api/tickets/${id}/encuesta`, {
         method: "PATCH",
         body: JSON.stringify(payload),
+    });
+}
+
+export async function deleteTicket(id: string): Promise<void> {
+    await apiFetch<void>(`/api/tickets/${id}`, {
+        method: "DELETE",
     });
 }

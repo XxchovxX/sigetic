@@ -51,5 +51,19 @@ public sealed record TicketResponse(
     string? ComentarioSatisfaccion,
     DateTime? FechaEncuestaUtc,
     DateTime FechaCreacionUtc,
-    DateTime? FechaActualizacionUtc
+    DateTime? FechaActualizacionUtc,
+    bool Eliminado,
+    DateTime? FechaEliminacionUtc,
+    string? EliminadoPor,
+    IReadOnlyList<TicketHistorialResponse> Historial
+);
+
+public sealed record TicketHistorialResponse(
+    Guid Id,
+    string TipoEvento,
+    string Usuario,
+    string? EstadoAnterior,
+    string? EstadoNuevo,
+    string? Detalle,
+    DateTime FechaEventoUtc
 );

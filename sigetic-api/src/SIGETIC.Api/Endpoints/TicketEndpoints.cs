@@ -55,6 +55,7 @@ public static class TicketEndpoints
 
         group.MapPost("/", async (
             CrearTicketRequest request,
+            ClaimsPrincipal user,
             ITicketService ticketService,
             CancellationToken cancellationToken) =>
         {
@@ -62,6 +63,7 @@ public static class TicketEndpoints
             {
                 var ticket = await ticketService.CreateAsync(
                     request,
+                    GetActor(user),
                     cancellationToken);
 
                 return Results.Created($"/api/tickets/{ticket.Id}", ticket);
@@ -78,6 +80,7 @@ public static class TicketEndpoints
         group.MapPatch("/{id:guid}/estado", async (
             Guid id,
             ActualizarEstadoTicketRequest request,
+            ClaimsPrincipal user,
             ITicketService ticketService,
             CancellationToken cancellationToken) =>
         {
@@ -86,6 +89,7 @@ public static class TicketEndpoints
                 var ticket = await ticketService.UpdateEstadoAsync(
                     id,
                     request,
+                    GetActor(user),
                     cancellationToken);
 
                 return Results.Ok(ticket);
@@ -110,6 +114,7 @@ public static class TicketEndpoints
         group.MapPatch("/{id:guid}/encuesta", async (
             Guid id,
             RegistrarEncuestaTicketRequest request,
+            ClaimsPrincipal user,
             ITicketService ticketService,
             CancellationToken cancellationToken) =>
         {
@@ -118,6 +123,7 @@ public static class TicketEndpoints
                 var ticket = await ticketService.RegistrarEncuestaAsync(
                     id,
                     request,
+                    GetActor(user),
                     cancellationToken);
 
                 return Results.Ok(ticket);
@@ -138,7 +144,39 @@ public static class TicketEndpoints
             }
         });
 
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            ClaimsPrincipal user,
+            ITicketService ticketService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                await ticketService.DeleteAsync(
+                    id,
+                    GetActor(user),
+                    cancellationToken);
+
+                return Results.NoContent();
+            }
+            catch (KeyNotFoundException exception)
+            {
+                return Results.NotFound(new
+                {
+                    message = exception.Message
+                });
+            }
+        })
+        .RequireAuthorization("TecnicoEscritura");
+
         return app;
+    }
+
+    private static string GetActor(ClaimsPrincipal user)
+    {
+        return user.FindFirstValue(ClaimTypes.Name) ??
+            user.FindFirstValue(ClaimTypes.Email) ??
+            "Sistema";
     }
 
     private static bool CanViewAllTickets(ClaimsPrincipal user)

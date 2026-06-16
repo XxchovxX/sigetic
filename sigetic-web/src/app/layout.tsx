@@ -16,9 +16,12 @@ export const metadata: Metadata = {
   title: "SIGETIC",
   description: "Sistema Integral de Gestión TIC de la Alcaldía de San Carlos de Guaroa.",
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/favicon.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
   },
 };
 

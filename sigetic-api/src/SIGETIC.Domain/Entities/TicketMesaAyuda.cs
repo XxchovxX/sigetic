@@ -35,6 +35,7 @@ public sealed class TicketMesaAyuda
         ImpresoraCodigo = string.IsNullOrWhiteSpace(impresoraCodigo) ? null : impresoraCodigo.Trim();
         FechaCompromiso = fechaCompromiso;
         Solucion = string.IsNullOrWhiteSpace(solucion) ? null : solucion.Trim();
+        Eliminado = false;
         FechaCreacionUtc = DateTime.UtcNow;
     }
 
@@ -58,8 +59,14 @@ public sealed class TicketMesaAyuda
     public int? CalificacionSolucion { get; private set; }
     public string? ComentarioSatisfaccion { get; private set; }
     public DateTime? FechaEncuestaUtc { get; private set; }
+    public bool Eliminado { get; private set; }
+    public DateTime? FechaEliminacionUtc { get; private set; }
+    public string? EliminadoPor { get; private set; }
     public DateTime FechaCreacionUtc { get; private set; }
     public DateTime? FechaActualizacionUtc { get; private set; }
+    public IReadOnlyCollection<TicketMesaAyudaHistorial> Historial => _historial;
+
+    private readonly List<TicketMesaAyudaHistorial> _historial = new();
 
     public void ActualizarEstado(string estado, string? responsableAsignado, string? solucion)
     {
@@ -71,6 +78,19 @@ public sealed class TicketMesaAyuda
         Estado = estado.Trim();
         ResponsableAsignado = string.IsNullOrWhiteSpace(responsableAsignado) ? ResponsableAsignado : responsableAsignado.Trim();
         Solucion = string.IsNullOrWhiteSpace(solucion) ? Solucion : solucion.Trim();
+        FechaActualizacionUtc = DateTime.UtcNow;
+    }
+
+    public void MarcarEliminado(string usuario)
+    {
+        if (Eliminado)
+        {
+            return;
+        }
+
+        Eliminado = true;
+        EliminadoPor = string.IsNullOrWhiteSpace(usuario) ? "Sistema" : usuario.Trim();
+        FechaEliminacionUtc = DateTime.UtcNow;
         FechaActualizacionUtc = DateTime.UtcNow;
     }
 

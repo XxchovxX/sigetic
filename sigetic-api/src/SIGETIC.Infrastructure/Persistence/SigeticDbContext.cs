@@ -28,6 +28,7 @@ public sealed class SigeticDbContext : DbContext
     public DbSet<Consumible> Consumibles => Set<Consumible>();
     public DbSet<MovimientoConsumible> MovimientosConsumibles => Set<MovimientoConsumible>();
     public DbSet<TicketMesaAyuda> TicketsMesaAyuda => Set<TicketMesaAyuda>();
+    public DbSet<TicketMesaAyudaHistorial> TicketsMesaAyudaHistorial => Set<TicketMesaAyudaHistorial>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +40,7 @@ public sealed class SigeticDbContext : DbContext
         ConfigureMantenimientosEquipo(modelBuilder);
         ConfigureBajasEquipo(modelBuilder);
         ConfigureTicketsMesaAyuda(modelBuilder);
+        ConfigureTicketsMesaAyudaHistorial(modelBuilder);
 
         ConfigureRoles(modelBuilder);
         ConfigurePermisos(modelBuilder);
@@ -395,6 +397,18 @@ public sealed class SigeticDbContext : DbContext
             entity.Property(e => e.FechaEncuestaUtc)
                 .HasColumnName("fecha_encuesta_utc");
 
+            entity.Property(e => e.Eliminado)
+                .HasColumnName("eliminado")
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            entity.Property(e => e.FechaEliminacionUtc)
+                .HasColumnName("fecha_eliminacion_utc");
+
+            entity.Property(e => e.EliminadoPor)
+                .HasColumnName("eliminado_por")
+                .HasMaxLength(180);
+
             entity.Property(e => e.FechaCreacionUtc)
                 .HasColumnName("fecha_creacion_utc")
                 .IsRequired();
@@ -405,6 +419,58 @@ public sealed class SigeticDbContext : DbContext
             entity.HasIndex(e => e.Estado);
             entity.HasIndex(e => e.FechaSolicitud);
             entity.HasIndex(e => e.Prioridad);
+            entity.HasIndex(e => e.Eliminado);
+
+            entity.HasMany(e => e.Historial)
+                .WithOne(e => e.Ticket)
+                .HasForeignKey(e => e.TicketId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureTicketsMesaAyudaHistorial(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<TicketMesaAyudaHistorial>(entity =>
+        {
+            entity.ToTable("tickets_mesa_ayuda_historial");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.TicketId)
+                .HasColumnName("ticket_id")
+                .IsRequired();
+
+            entity.Property(e => e.TipoEvento)
+                .HasColumnName("tipo_evento")
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(e => e.Usuario)
+                .HasColumnName("usuario")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.EstadoAnterior)
+                .HasColumnName("estado_anterior")
+                .HasMaxLength(80);
+
+            entity.Property(e => e.EstadoNuevo)
+                .HasColumnName("estado_nuevo")
+                .HasMaxLength(80);
+
+            entity.Property(e => e.Detalle)
+                .HasColumnName("detalle")
+                .HasMaxLength(1200);
+
+            entity.Property(e => e.FechaEventoUtc)
+                .HasColumnName("fecha_evento_utc")
+                .IsRequired();
+
+            entity.HasIndex(e => e.TicketId);
+            entity.HasIndex(e => e.FechaEventoUtc);
         });
     }
 

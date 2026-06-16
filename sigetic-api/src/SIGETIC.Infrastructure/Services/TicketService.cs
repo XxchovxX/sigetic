@@ -23,6 +23,8 @@ public sealed class TicketService : ITicketService
     {
         return await _dbContext.TicketsMesaAyuda
             .AsNoTracking()
+            .Include(e => e.Historial)
+            .Where(e => !e.Eliminado)
             .OrderByDescending(e => e.FechaSolicitud)
             .ThenByDescending(e => e.FechaCreacionUtc)
             .Select(e => ToResponse(e))
@@ -35,6 +37,8 @@ public sealed class TicketService : ITicketService
     {
         var ticket = await _dbContext.TicketsMesaAyuda
             .AsNoTracking()
+            .Include(e => e.Historial)
+            .Where(e => !e.Eliminado)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         return ticket is null ? null : ToResponse(ticket);
@@ -42,6 +46,7 @@ public sealed class TicketService : ITicketService
 
     public async Task<TicketResponse> CreateAsync(
         CrearTicketRequest request,
+        string usuario,
         CancellationToken cancellationToken)
     {
         ValidateRequest(
@@ -72,6 +77,19 @@ public sealed class TicketService : ITicketService
         _dbContext.TicketsMesaAyuda.Add(ticket);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        _dbContext.TicketsMesaAyudaHistorial.Add(new TicketMesaAyudaHistorial(
+            ticket.Id,
+            "Creación",
+            usuario,
+            null,
+            ticket.Estado,
+            $"Ticket {ticket.Codigo} creado."));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.Entry(ticket)
+            .Collection(e => e.Historial)
+            .LoadAsync(cancellationToken);
+
         var response = ToResponse(ticket);
         await _emailNotificationService.NotifyTicketCreatedAsync(
             response,
@@ -83,22 +101,37 @@ public sealed class TicketService : ITicketService
     public async Task<TicketResponse> UpdateEstadoAsync(
         Guid id,
         ActualizarEstadoTicketRequest request,
+        string usuario,
         CancellationToken cancellationToken)
     {
         var ticket = await _dbContext.TicketsMesaAyuda
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+            .Include(e => e.Historial)
+            .FirstOrDefaultAsync(e => e.Id == id && !e.Eliminado, cancellationToken);
 
         if (ticket is null)
         {
             throw new KeyNotFoundException("No se encontró el ticket solicitado.");
         }
 
+        string estadoAnterior = ticket.Estado;
+
         ticket.ActualizarEstado(
             request.Estado,
             request.ResponsableAsignado,
             request.Solucion);
 
+        _dbContext.TicketsMesaAyudaHistorial.Add(new TicketMesaAyudaHistorial(
+            ticket.Id,
+            "Cambio de estado",
+            usuario,
+            estadoAnterior,
+            ticket.Estado,
+            request.Solucion));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.Entry(ticket)
+            .Collection(e => e.Historial)
+            .LoadAsync(cancellationToken);
 
         var response = ToResponse(ticket);
         await _emailNotificationService.NotifyTicketUpdatedAsync(
@@ -111,10 +144,12 @@ public sealed class TicketService : ITicketService
     public async Task<TicketResponse> RegistrarEncuestaAsync(
         Guid id,
         RegistrarEncuestaTicketRequest request,
+        string usuario,
         CancellationToken cancellationToken)
     {
         var ticket = await _dbContext.TicketsMesaAyuda
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+            .Include(e => e.Historial)
+            .FirstOrDefaultAsync(e => e.Id == id && !e.Eliminado, cancellationToken);
 
         if (ticket is null)
         {
@@ -128,9 +163,46 @@ public sealed class TicketService : ITicketService
             request.CalificacionSolucion,
             request.ComentarioSatisfaccion);
 
+        _dbContext.TicketsMesaAyudaHistorial.Add(new TicketMesaAyudaHistorial(
+            ticket.Id,
+            "Encuesta de satisfacción",
+            usuario,
+            ticket.Estado,
+            ticket.Estado,
+            request.ComentarioSatisfaccion));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.Entry(ticket)
+            .Collection(e => e.Historial)
+            .LoadAsync(cancellationToken);
 
         return ToResponse(ticket);
+    }
+
+    public async Task DeleteAsync(
+        Guid id,
+        string usuario,
+        CancellationToken cancellationToken)
+    {
+        var ticket = await _dbContext.TicketsMesaAyuda
+            .FirstOrDefaultAsync(e => e.Id == id && !e.Eliminado, cancellationToken);
+
+        if (ticket is null)
+        {
+            throw new KeyNotFoundException("No se encontró el ticket solicitado.");
+        }
+
+        ticket.MarcarEliminado(usuario);
+
+        _dbContext.TicketsMesaAyudaHistorial.Add(new TicketMesaAyudaHistorial(
+            ticket.Id,
+            "Eliminación",
+            usuario,
+            ticket.Estado,
+            ticket.Estado,
+            "Ticket eliminado de la vista operativa."));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<string> GenerateCodeAsync(
@@ -168,7 +240,21 @@ public sealed class TicketService : ITicketService
             ticket.ComentarioSatisfaccion,
             ticket.FechaEncuestaUtc,
             ticket.FechaCreacionUtc,
-            ticket.FechaActualizacionUtc);
+            ticket.FechaActualizacionUtc,
+            ticket.Eliminado,
+            ticket.FechaEliminacionUtc,
+            ticket.EliminadoPor,
+            ticket.Historial
+                .OrderBy(e => e.FechaEventoUtc)
+                .Select(e => new TicketHistorialResponse(
+                    e.Id,
+                    e.TipoEvento,
+                    e.Usuario,
+                    e.EstadoAnterior,
+                    e.EstadoNuevo,
+                    e.Detalle,
+                    e.FechaEventoUtc))
+                .ToList());
     }
 
     private static void ValidateRequest(
@@ -186,7 +272,7 @@ public sealed class TicketService : ITicketService
             throw new ArgumentException("La dependencia es obligatoria.");
 
         if (string.IsNullOrWhiteSpace(categoria))
-            throw new ArgumentException("La categoria es obligatoria.");
+            throw new ArgumentException("La categoría es obligatoria.");
 
         if (string.IsNullOrWhiteSpace(prioridad))
             throw new ArgumentException("La prioridad es obligatoria.");
@@ -195,6 +281,6 @@ public sealed class TicketService : ITicketService
             throw new ArgumentException("El estado es obligatorio.");
 
         if (string.IsNullOrWhiteSpace(descripcion))
-            throw new ArgumentException("La descripcion de la solicitud es obligatoria.");
+            throw new ArgumentException("La descripción de la solicitud es obligatoria.");
     }
 }
