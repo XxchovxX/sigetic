@@ -1,15 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Plus, UsersRound } from "lucide-react";
+import {
+    KeyRound,
+    Plus,
+    UserCheck,
+    UserX,
+    UsersRound,
+} from "lucide-react";
 import {
     cambiarPasswordUsuario,
     createUsuario,
     getRoles,
     getUsuarios,
+    updateUsuario,
     type Rol,
     type Usuario,
 } from "@/lib/administracion-api";
+import { getStoredUser } from "@/lib/auth";
 
 export default function UsuariosPage() {
     const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -25,6 +33,7 @@ export default function UsuariosPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [changingPasswordId, setChangingPasswordId] = useState("");
+    const [updatingStatusId, setUpdatingStatusId] = useState("");
 
     const loadData = useCallback(async () => {
         try {
@@ -101,37 +110,75 @@ export default function UsuariosPage() {
                 ...current,
                 [usuario.id]: "",
             }));
-            setMessage(`ContraseÃ±a actualizada para ${usuario.nombreCompleto}.`);
+            setMessage(`Contraseña actualizada para ${usuario.nombreCompleto}.`);
         } catch (error) {
             setMessage(
                 error instanceof Error
                     ? error.message
-                    : "No fue posible cambiar la contraseÃ±a."
+                    : "No fue posible cambiar la contraseña."
             );
         } finally {
             setChangingPasswordId("");
         }
     }
 
+    async function handleToggleUsuario(usuario: Usuario) {
+        const storedUser = getStoredUser();
+
+        if (storedUser?.id === usuario.id && usuario.activo) {
+            setMessage(
+                "No puedes desactivar tu propio usuario mientras tienes la sesión abierta."
+            );
+            return;
+        }
+
+        try {
+            setUpdatingStatusId(usuario.id);
+            setMessage("");
+
+            await updateUsuario(usuario.id, {
+                nombreCompleto: usuario.nombreCompleto,
+                correo: usuario.correo,
+                rolId: usuario.rolId,
+                activo: !usuario.activo,
+            });
+
+            setMessage(
+                usuario.activo
+                    ? `Usuario ${usuario.nombreCompleto} desactivado.`
+                    : `Usuario ${usuario.nombreCompleto} reactivado.`
+            );
+            await loadData();
+        } catch (error) {
+            setMessage(
+                error instanceof Error
+                    ? error.message
+                    : "No fue posible actualizar el estado del usuario."
+            );
+        } finally {
+            setUpdatingStatusId("");
+        }
+    }
+
     return (
-        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-            <section className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="grid items-start gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+            <section className="rounded-[1.35rem] border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="mb-5 flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
                         <Plus className="h-5 w-5" />
                     </div>
 
                     <div>
-                        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#006b2e]">
+                        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#006b2e]">
                             Nuevo usuario
                         </p>
-                        <h2 className="text-xl font-black tracking-[-0.03em]">
+                        <h2 className="text-2xl font-black leading-tight tracking-[-0.03em]">
                             Crear acceso al sistema
                         </h2>
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="grid gap-4">
+                <form onSubmit={handleSubmit} className="grid gap-3.5">
                     <label className="block">
                         <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-600">
                             Nombre completo
@@ -164,7 +211,7 @@ export default function UsuariosPage() {
                             type="password"
                             value={password}
                             onChange={(event) => setPassword(event.target.value)}
-                            placeholder="Define una contraseÃ±a temporal"
+                            placeholder="Define una contraseña temporal"
                             className={inputClass}
                         />
                     </label>
@@ -195,27 +242,33 @@ export default function UsuariosPage() {
                     <button
                         type="submit"
                         disabled={isSubmitting}
-                        className="inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#006b2e] to-[#0b8f3a] px-5 text-sm font-black text-white shadow-lg shadow-green-900/20 disabled:opacity-70"
+                        className="inline-flex h-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#006b2e] to-[#0b8f3a] px-5 text-sm font-black text-white shadow-lg shadow-green-900/20 disabled:opacity-70"
                     >
                         {isSubmitting ? "Guardando..." : "Crear usuario"}
                     </button>
                 </form>
             </section>
 
-            <section className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-5 flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
-                        <UsersRound className="h-5 w-5" />
+            <section className="min-w-0 rounded-[1.35rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
+                            <UsersRound className="h-5 w-5" />
+                        </div>
+
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#006b2e]">
+                                Usuarios
+                            </p>
+                            <h2 className="text-2xl font-black tracking-[-0.03em]">
+                                Accesos registrados
+                            </h2>
+                        </div>
                     </div>
 
-                    <div>
-                        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#006b2e]">
-                            Usuarios
-                        </p>
-                        <h2 className="text-xl font-black tracking-[-0.03em]">
-                            Accesos registrados
-                        </h2>
-                    </div>
+                    <p className="max-w-[360px] text-sm leading-6 text-slate-500">
+                        Desactiva usuarios para bloquear el acceso sin perder historial.
+                    </p>
                 </div>
 
                 {isLoading ? (
@@ -223,31 +276,31 @@ export default function UsuariosPage() {
                         Cargando usuarios...
                     </p>
                 ) : (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200">
-                        <table className="w-full min-w-[720px] text-left text-sm">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                        <table className="w-full min-w-[1040px] text-left text-sm">
                             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                 <tr>
-                                    <th className="px-4 py-3">Usuario</th>
-                                    <th className="px-4 py-3">Correo</th>
-                                    <th className="px-4 py-3">Rol</th>
-                                    <th className="px-4 py-3">Estado</th>
-                                    <th className="px-4 py-3">ContraseÃ±a</th>
+                                    <th className="w-[21%] px-5 py-3">Usuario</th>
+                                    <th className="w-[24%] px-5 py-3">Correo</th>
+                                    <th className="w-[18%] px-5 py-3">Rol</th>
+                                    <th className="w-[11%] px-5 py-3">Estado</th>
+                                    <th className="w-[26%] px-5 py-3">Acciones</th>
                                 </tr>
                             </thead>
 
                             <tbody className="divide-y divide-slate-100">
                                 {usuarios.map((usuario) => (
                                     <tr key={usuario.id}>
-                                        <td className="px-4 py-3 font-black text-[#14233b]">
+                                        <td className="px-5 py-4 align-middle font-black leading-6 text-[#14233b]">
                                             {usuario.nombreCompleto}
                                         </td>
-                                        <td className="px-4 py-3 text-slate-600">
+                                        <td className="px-5 py-4 align-middle text-slate-600">
                                             {usuario.correo}
                                         </td>
-                                        <td className="px-4 py-3 text-slate-600">
+                                        <td className="px-5 py-4 align-middle text-slate-600">
                                             {usuario.rol}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-4 align-middle">
                                             <span
                                                 className={`rounded-full px-3 py-1 text-xs font-black ${usuario.activo
                                                         ? "bg-green-50 text-[#006b2e]"
@@ -257,31 +310,50 @@ export default function UsuariosPage() {
                                                 {usuario.activo ? "Activo" : "Inactivo"}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex min-w-[260px] items-center gap-2">
-                                                <input
-                                                    type="password"
-                                                    value={passwords[usuario.id] ?? ""}
-                                                    onChange={(event) =>
-                                                        setPasswords((current) => ({
-                                                            ...current,
-                                                            [usuario.id]: event.target.value,
-                                                        }))
-                                                    }
-                                                    placeholder="Nueva contraseÃ±a"
-                                                    className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-xs outline-none transition focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10"
-                                                />
+                                        <td className="px-5 py-4 align-middle">
+                                            <div className="grid gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="password"
+                                                        value={passwords[usuario.id] ?? ""}
+                                                        onChange={(event) =>
+                                                            setPasswords((current) => ({
+                                                                ...current,
+                                                                [usuario.id]: event.target.value,
+                                                            }))
+                                                        }
+                                                        placeholder="Nueva contraseña"
+                                                        className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-xs outline-none transition focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCambiarPassword(usuario)}
+                                                        disabled={
+                                                            changingPasswordId === usuario.id ||
+                                                            !(passwords[usuario.id] ?? "").trim()
+                                                        }
+                                                        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#006b2e] px-3 text-xs font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        <KeyRound className="h-4 w-4" />
+                                                        Cambiar
+                                                    </button>
+                                                </div>
+
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleCambiarPassword(usuario)}
-                                                    disabled={
-                                                        changingPasswordId === usuario.id ||
-                                                        !(passwords[usuario.id] ?? "").trim()
-                                                    }
-                                                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#006b2e] px-3 text-xs font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                                    onClick={() => handleToggleUsuario(usuario)}
+                                                    disabled={updatingStatusId === usuario.id}
+                                                    className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black shadow-sm disabled:cursor-not-allowed disabled:opacity-50 ${usuario.activo
+                                                            ? "bg-red-50 text-red-700 hover:bg-red-100"
+                                                            : "bg-green-50 text-[#006b2e] hover:bg-green-100"
+                                                        }`}
                                                 >
-                                                    <KeyRound className="h-4 w-4" />
-                                                    Cambiar
+                                                    {usuario.activo ? (
+                                                        <UserX className="h-4 w-4" />
+                                                    ) : (
+                                                        <UserCheck className="h-4 w-4" />
+                                                    )}
+                                                    {usuario.activo ? "Desactivar usuario" : "Reactivar usuario"}
                                                 </button>
                                             </div>
                                         </td>
