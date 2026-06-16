@@ -10,7 +10,8 @@ services:
     runtime: docker
     plan: free
     rootDir: sigetic-api
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: sigetic-api/Dockerfile
+    dockerContext: sigetic-api
     healthCheckPath: /api/health
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
@@ -39,7 +40,8 @@ services:
     runtime: docker
     plan: free
     rootDir: sigetic-web
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: sigetic-web/Dockerfile
+    dockerContext: sigetic-web
     envVars:
       - key: NODE_ENV
         value: production
