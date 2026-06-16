@@ -29,6 +29,15 @@ services:
       Database__ApplyMigrationsOnStartup: "true"
       Cors__AllowedOrigins__0: https://${SIGETIC_DOMAIN}
       Cors__AllowedOrigins__1: http://${SIGETIC_DOMAIN}
+      Email__Enabled: ${EMAIL_ENABLED:-false}
+      Email__SmtpHost: ${EMAIL_SMTP_HOST:-}
+      Email__SmtpPort: ${EMAIL_SMTP_PORT:-587}
+      Email__SmtpUser: ${EMAIL_SMTP_USER:-}
+      Email__SmtpPassword: ${EMAIL_SMTP_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM_ADDRESS:-}
+      Email__FromName: ${EMAIL_FROM_NAME:-SIGETIC}
+      Email__EnableSsl: ${EMAIL_ENABLE_SSL:-true}
+      Email__TicketRecipients: ${EMAIL_TICKET_RECIPIENTS:-}
     depends_on:
       db:
         condition: service_healthy
