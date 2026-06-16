@@ -1,4 +1,5 @@
 import { getApiUrl } from "@/lib/api-url";
+import { getToken } from "@/lib/auth";
 
 export type Equipo = {
     id: string;
@@ -103,12 +104,20 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return response.json() as Promise<T>;
 }
 
+function getAuthorizedHeaders(options?: HeadersInit): HeadersInit {
+    const token = getToken();
+
+    return {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options ?? {}),
+    };
+}
+
 export async function getEquipos(): Promise<Equipo[]> {
     const response = await fetch(`${getApiUrl()}/api/equipos`, {
         method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
+        headers: getAuthorizedHeaders(),
         cache: "no-store",
     });
 
@@ -118,9 +127,7 @@ export async function getEquipos(): Promise<Equipo[]> {
 export async function getEquipoById(id: string): Promise<Equipo> {
     const response = await fetch(`${getApiUrl()}/api/equipos/${id}`, {
         method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
+        headers: getAuthorizedHeaders(),
         cache: "no-store",
     });
 
@@ -132,9 +139,7 @@ export async function createEquipo(
 ): Promise<Equipo> {
     const response = await fetch(`${getApiUrl()}/api/equipos`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
+        headers: getAuthorizedHeaders(),
         body: JSON.stringify(payload),
     });
 
@@ -147,9 +152,7 @@ export async function updateEquipo(
 ): Promise<Equipo> {
     const response = await fetch(`${getApiUrl()}/api/equipos/${id}`, {
         method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-        },
+        headers: getAuthorizedHeaders(),
         body: JSON.stringify(payload),
     });
 
@@ -163,9 +166,7 @@ export async function getMantenimientosByEquipoId(
         `${getApiUrl()}/api/equipos/${equipoId}/mantenimientos`,
         {
             method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: getAuthorizedHeaders(),
             cache: "no-store",
         }
     );
@@ -181,9 +182,7 @@ export async function createMantenimientoEquipo(
         `${getApiUrl()}/api/equipos/${equipoId}/mantenimientos`,
         {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: getAuthorizedHeaders(),
             body: JSON.stringify(payload),
         }
     );
@@ -196,9 +195,7 @@ export async function getBajaEquipoByEquipoId(
 ): Promise<BajaEquipo | null> {
     const response = await fetch(`${getApiUrl()}/api/equipos/${equipoId}/baja`, {
         method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
+        headers: getAuthorizedHeaders(),
         cache: "no-store",
     });
 
@@ -215,9 +212,7 @@ export async function createBajaEquipo(
 ): Promise<BajaEquipo> {
     const response = await fetch(`${getApiUrl()}/api/equipos/${equipoId}/baja`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
+        headers: getAuthorizedHeaders(),
         body: JSON.stringify(payload),
     });
 

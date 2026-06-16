@@ -1,6 +1,9 @@
 param(
     [string]$WebBaseUrl = "http://localhost:3000",
-    [string]$ApiBaseUrl = "http://localhost:5032"
+    [string]$ApiBaseUrl = "http://localhost:5032",
+    [string]$AdminPassword = $env:SIGETIC_TEST_ADMIN_PASSWORD,
+    [string]$SecretarioPassword = $env:SIGETIC_TEST_SECRETARIO_PASSWORD,
+    [string]$AuxiliarPassword = $env:SIGETIC_TEST_AUXILIAR_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
@@ -65,13 +68,19 @@ $result.PrivateWithoutToken = foreach ($endpoint in $privateEndpoints) {
     }
 }
 
-$adminToken = Login-Sigetic "admin@sigetic.local" "Admin123*"
-$secretarioToken = Login-Sigetic "secretario.administrativo@sigetic.local" "Sigetic123*"
-$auxiliarToken = Login-Sigetic "auxiliar.administrativo@sigetic.local" "Sigetic123*"
+if ([string]::IsNullOrWhiteSpace($AdminPassword) -or
+    [string]::IsNullOrWhiteSpace($SecretarioPassword) -or
+    [string]::IsNullOrWhiteSpace($AuxiliarPassword)) {
+    throw "Configure SIGETIC_TEST_ADMIN_PASSWORD, SIGETIC_TEST_SECRETARIO_PASSWORD y SIGETIC_TEST_AUXILIAR_PASSWORD antes de ejecutar pruebas con login."
+}
+
+$adminToken = Login-Sigetic "admin@sigetic.local" $AdminPassword
+$secretarioToken = Login-Sigetic "secretario.administrativo@sigetic.local" $SecretarioPassword
+$auxiliarToken = Login-Sigetic "auxiliar.administrativo@sigetic.local" $AuxiliarPassword
 
 $webProxyBody = @{
     correo = "admin@sigetic.local"
-    password = "Admin123*"
+    password = $AdminPassword
 } | ConvertTo-Json
 
 $webProxyLogin = Invoke-RestMethod `

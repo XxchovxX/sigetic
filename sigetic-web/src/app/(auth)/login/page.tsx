@@ -16,8 +16,8 @@ import { getToken, login, saveSession } from "@/lib/auth";
 export default function LoginPage() {
     const router = useRouter();
 
-    const [correo, setCorreo] = useState("admin@sigetic.local");
-    const [password, setPassword] = useState("Admin123*");
+    const [correo, setCorreo] = useState("");
+    const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState("");
@@ -168,18 +168,10 @@ export default function LoginPage() {
                                 {isSubmitting ? "Validando acceso..." : "Entrar al sistema"}
                             </button>
 
-                            <div className="mt-5 rounded-2xl bg-green-50 p-4 text-xs leading-6 text-[#006b2e]">
-                                <strong>Administrador:</strong> admin@sigetic.local / Admin123*
-                                <br />
-                                <strong>Secretario administrativo financiero:</strong>{" "}
-                                secretario.administrativo@sigetic.local / Sigetic123*
-                                <br />
-                                <strong>Administrador TIC:</strong>{" "}
-                                administrador.tic@sigetic.local / Sigetic123*
-                                <br />
-                                <strong>Auxiliar administrativo SAF:</strong>{" "}
-                                auxiliar.administrativo@sigetic.local / Sigetic123*
-                            </div>
+                            <p className="mt-5 rounded-2xl bg-green-50 p-4 text-xs font-bold leading-6 text-[#006b2e]">
+                                El acceso es exclusivo para usuarios institucionales
+                                autorizados por el administrador SIGETIC.
+                            </p>
                         </form>
 
                         <p className="mt-4 text-center text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
