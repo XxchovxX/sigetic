@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
     KeyRound,
     Plus,
+    Trash2,
     UserCheck,
     UserX,
     UsersRound,
@@ -11,6 +12,7 @@ import {
 import {
     cambiarPasswordUsuario,
     createUsuario,
+    deleteUsuario,
     getRoles,
     getUsuarios,
     updateUsuario,
@@ -35,6 +37,7 @@ export default function UsuariosPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [changingPasswordId, setChangingPasswordId] = useState("");
     const [updatingStatusId, setUpdatingStatusId] = useState("");
+    const [deletingUserId, setDeletingUserId] = useState("");
 
     const loadData = useCallback(async () => {
         try {
@@ -196,6 +199,46 @@ export default function UsuariosPage() {
             );
         } finally {
             setUpdatingStatusId("");
+        }
+    }
+
+    async function handleDeleteUsuario(usuario: Usuario) {
+        const storedUser = getStoredUser();
+
+        if (storedUser?.id === usuario.id) {
+            setMessageType("error");
+            setMessage(
+                "No puedes eliminar tu propio usuario mientras tienes la sesión abierta."
+            );
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `¿Eliminar el usuario ${usuario.nombreCompleto}? Esta acción no se puede deshacer.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setDeletingUserId(usuario.id);
+            setMessage("");
+
+            await deleteUsuario(usuario.id);
+
+            setMessageType("success");
+            setMessage(`Usuario ${usuario.nombreCompleto} eliminado.`);
+            await loadData();
+        } catch (error) {
+            setMessageType("error");
+            setMessage(
+                error instanceof Error
+                    ? error.message
+                    : "No fue posible eliminar el usuario."
+            );
+        } finally {
+            setDeletingUserId("");
         }
     }
 
@@ -399,6 +442,16 @@ export default function UsuariosPage() {
                                                         <UserCheck className="h-4 w-4" />
                                                     )}
                                                     {usuario.activo ? "Desactivar usuario" : "Reactivar usuario"}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteUsuario(usuario)}
+                                                    disabled={deletingUserId === usuario.id}
+                                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-red-700 ring-1 ring-red-100 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    Eliminar usuario
                                                 </button>
                                             </div>
                                         </td>

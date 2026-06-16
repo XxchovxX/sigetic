@@ -200,6 +200,12 @@ export async function cambiarPasswordUsuario(
     });
 }
 
+export async function deleteUsuario(id: string): Promise<void> {
+    await adminFetch<void>(`/api/administracion/usuarios/${id}`, {
+        method: "DELETE",
+    });
+}
+
 export async function getDependencias(): Promise<Dependencia[]> {
     return adminFetch<Dependencia[]>("/api/administracion/dependencias");
 }

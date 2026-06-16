@@ -150,6 +150,38 @@ public static class AdministracionEndpoints
             }
         });
 
+        group.MapDelete("/usuarios/{id:guid}", async (
+            Guid id,
+            HttpContext httpContext,
+            IAdministracionService service,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                string? userIdValue = httpContext.User.FindFirst("usuario_id")?.Value;
+
+                if (!Guid.TryParse(userIdValue, out Guid currentUserId))
+                {
+                    return Results.Unauthorized();
+                }
+
+                await service.DeleteUsuarioAsync(
+                    id,
+                    currentUserId,
+                    cancellationToken);
+
+                return Results.NoContent();
+            }
+            catch (KeyNotFoundException exception)
+            {
+                return Results.NotFound(new { message = exception.Message });
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Results.Conflict(new { message = exception.Message });
+            }
+        });
+
         group.MapGet("/dependencias", async (
             IAdministracionService service,
             CancellationToken cancellationToken) =>

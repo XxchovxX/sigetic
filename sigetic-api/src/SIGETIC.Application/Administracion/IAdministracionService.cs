@@ -34,6 +34,11 @@ public interface IAdministracionService
         CambiarPasswordUsuarioRequest request,
         CancellationToken cancellationToken);
 
+    Task DeleteUsuarioAsync(
+        Guid id,
+        Guid currentUserId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<DependenciaResponse>> GetDependenciasAsync(
         CancellationToken cancellationToken);
 

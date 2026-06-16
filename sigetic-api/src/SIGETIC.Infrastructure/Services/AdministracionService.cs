@@ -254,6 +254,43 @@ public sealed class AdministracionService : IAdministracionService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeleteUsuarioAsync(
+        Guid id,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
+        if (id == currentUserId)
+        {
+            throw new InvalidOperationException(
+                "No puedes eliminar tu propio usuario mientras tienes la sesión abierta.");
+        }
+
+        var usuario = await _dbContext.Usuarios
+            .Include(e => e.Rol)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+
+        if (usuario is null)
+            throw new KeyNotFoundException("No se encontró el usuario solicitado.");
+
+        if (usuario.Rol?.Nombre == "Administrador" && usuario.Activo)
+        {
+            int activeAdmins = await _dbContext.Usuarios
+                .Include(e => e.Rol)
+                .CountAsync(
+                    e => e.Activo && e.Rol != null && e.Rol.Nombre == "Administrador",
+                    cancellationToken);
+
+            if (activeAdmins <= 1)
+            {
+                throw new InvalidOperationException(
+                    "No puedes eliminar el último administrador activo del sistema.");
+            }
+        }
+
+        _dbContext.Usuarios.Remove(usuario);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<DependenciaResponse>> GetDependenciasAsync(
         CancellationToken cancellationToken)
     {
