@@ -1,480 +1,431 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    AlertTriangle,
+    ArrowLeft,
     CheckCircle2,
+    ClipboardList,
     Computer,
-    Download,
-    Eye,
-    Filter,
-    Laptop,
-    Monitor,
-    MoreHorizontal,
-    Plus,
-    Search,
-    Server,
-    SlidersHorizontal,
+    HardDrive,
+    Save,
+    UserRound,
 } from "lucide-react";
-import { getEquipos, type Equipo } from "@/lib/api";
+import { z } from "zod";
+import { createEquipo } from "@/lib/api";
 
-function getEquipmentIcon(type: string) {
-    const normalized = type.toLowerCase();
+const equipmentSchema = z.object({
+    codigoInterno: z.string().min(3, "El codigo interno es obligatorio."),
+    tipoEquipo: z.string().min(1, "Seleccione el tipo de equipo."),
+    marca: z.string().min(2, "La marca es obligatoria."),
+    modelo: z.string().min(2, "El modelo es obligatorio."),
+    serial: z.string().min(3, "El serial es obligatorio."),
+    dependencia: z.string().min(1, "Seleccione la dependencia."),
+    funcionarioAsignado: z.string().min(2, "El funcionario asignado es obligatorio."),
+    estado: z.string().min(1, "Seleccione el estado."),
+    procesador: z.string().min(2, "El procesador es obligatorio."),
+    memoriaRam: z.string().min(1, "Ingrese la memoria RAM."),
+    almacenamiento: z.string().min(1, "Ingrese el almacenamiento."),
+    sistemaOperativo: z.string().min(2, "El sistema operativo es obligatorio."),
+    direccionIp: z.string().optional(),
+    direccionMac: z.string().optional(),
+    ubicacionFisica: z.string().min(2, "La ubicacion fisica es obligatoria."),
+    fechaIngreso: z.string().min(1, "La fecha de ingreso es obligatoria."),
+    observaciones: z.string().optional(),
+});
 
-    if (normalized.includes("portátil")) return Laptop;
-    if (normalized.includes("servidor")) return Server;
+type EquipmentFormValues = z.infer<typeof equipmentSchema>;
 
-    return Monitor;
+const dependencies = [
+    "Despacho Municipal",
+    "Secretaria de Planeacion",
+    "Secretaria de Gobierno",
+    "Secretaria Administrativa y Financiera",
+    "Control Interno",
+    "Juridica",
+    "Comisaria de Familia",
+    "Inspeccion de Policia",
+    "Almacen",
+    "Sistemas",
+];
+
+const equipmentTypes = [
+    "Computador de escritorio",
+    "Portatil",
+    "Servidor",
+    "Monitor",
+    "Switch",
+    "Router",
+    "Access Point",
+    "UPS",
+    "Otro",
+];
+
+const statuses = [
+    "Activo",
+    "En mantenimiento",
+    "Disponible",
+    "Dado de baja",
+    "Pendiente de revision",
+    "Pendiente de repuesto",
+];
+
+function today() {
+    return new Date().toISOString().slice(0, 10);
 }
 
-function getStatusClass(status: string) {
-    const normalized = status.toLowerCase();
+export default function NewEquipmentPage() {
+    const router = useRouter();
 
-    if (normalized.includes("activo")) {
-        return "bg-green-50 text-[#006b2e]";
-    }
-
-    if (normalized.includes("mantenimiento")) {
-        return "bg-yellow-50 text-yellow-700";
-    }
-
-    if (normalized.includes("baja")) {
-        return "bg-red-50 text-red-700";
-    }
-
-    return "bg-slate-100 text-slate-600";
-}
-
-function exportToCsv(equipos: Equipo[]) {
-    const headers = [
-        "Código interno",
-        "Tipo equipo",
-        "Marca",
-        "Modelo",
-        "Serial",
-        "Dependencia",
-        "Funcionario asignado",
-        "Estado",
-        "Procesador",
-        "Memoria RAM",
-        "Almacenamiento",
-        "Sistema operativo",
-        "Dirección IP",
-        "Dirección MAC",
-        "Ubicación física",
-        "Fecha ingreso",
-    ];
-
-    const rows = equipos.map((item) => [
-        item.codigoInterno,
-        item.tipoEquipo,
-        item.marca,
-        item.modelo,
-        item.serial,
-        item.dependencia,
-        item.funcionarioAsignado,
-        item.estado,
-        item.procesador,
-        item.memoriaRam,
-        item.almacenamiento,
-        item.sistemaOperativo,
-        item.direccionIp ?? "",
-        item.direccionMac ?? "",
-        item.ubicacionFisica,
-        item.fechaIngreso,
-    ]);
-
-    const csv = [headers, ...rows]
-        .map((row) =>
-            row
-                .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
-                .join(";")
-        )
-        .join("\n");
-
-    const blob = new Blob([csv], {
-        type: "text/csv;charset=utf-8;",
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<EquipmentFormValues>({
+        resolver: zodResolver(equipmentSchema),
+        defaultValues: {
+            codigoInterno: "",
+            tipoEquipo: "Computador de escritorio",
+            marca: "",
+            modelo: "",
+            serial: "",
+            dependencia: "",
+            funcionarioAsignado: "",
+            estado: "Activo",
+            procesador: "",
+            memoriaRam: "",
+            almacenamiento: "",
+            sistemaOperativo: "",
+            direccionIp: "",
+            direccionMac: "",
+            ubicacionFisica: "",
+            fechaIngreso: today(),
+            observaciones: "",
+        },
     });
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "inventario-tic-sigetic.csv";
-    link.click();
-
-    URL.revokeObjectURL(url);
-}
-
-export default function InventoryPage() {
-    const [equipos, setEquipos] = useState<Equipo[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("Todos");
-
-    useEffect(() => {
-        async function loadEquipos() {
-            try {
-                setIsLoading(true);
-                setError("");
-
-                const data = await getEquipos();
-                setEquipos(data);
-            } catch (err) {
-                const message =
-                    err instanceof Error
-                        ? err.message
-                        : "No fue posible cargar el inventario TIC.";
-
-                setError(message);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-
-        loadEquipos();
-    }, []);
-
-    const filteredEquipos = useMemo(() => {
-        const normalizedSearch = searchTerm.toLowerCase().trim();
-
-        return equipos.filter((item) => {
-            const matchesSearch =
-                !normalizedSearch ||
-                item.codigoInterno.toLowerCase().includes(normalizedSearch) ||
-                item.serial.toLowerCase().includes(normalizedSearch) ||
-                item.marca.toLowerCase().includes(normalizedSearch) ||
-                item.modelo.toLowerCase().includes(normalizedSearch) ||
-                item.dependencia.toLowerCase().includes(normalizedSearch) ||
-                item.funcionarioAsignado.toLowerCase().includes(normalizedSearch);
-
-            const matchesStatus =
-                statusFilter === "Todos" || item.estado === statusFilter;
-
-            return matchesSearch && matchesStatus;
+    async function onSubmit(data: EquipmentFormValues) {
+        const created = await createEquipo({
+            codigoInterno: data.codigoInterno,
+            tipoEquipo: data.tipoEquipo,
+            marca: data.marca,
+            modelo: data.modelo,
+            serial: data.serial,
+            dependencia: data.dependencia,
+            funcionarioAsignado: data.funcionarioAsignado,
+            estado: data.estado,
+            procesador: data.procesador,
+            memoriaRam: data.memoriaRam,
+            almacenamiento: data.almacenamiento,
+            sistemaOperativo: data.sistemaOperativo,
+            direccionIp: data.direccionIp || null,
+            direccionMac: data.direccionMac || null,
+            ubicacionFisica: data.ubicacionFisica,
+            fechaIngreso: data.fechaIngreso,
+            observaciones: data.observaciones || null,
         });
-    }, [equipos, searchTerm, statusFilter]);
 
-    const totalEquipos = equipos.length;
-    const activos = equipos.filter((item) =>
-        item.estado.toLowerCase().includes("activo")
-    ).length;
-    const mantenimiento = equipos.filter((item) =>
-        item.estado.toLowerCase().includes("mantenimiento")
-    ).length;
-    const servidores = equipos.filter((item) =>
-        item.tipoEquipo.toLowerCase().includes("servidor")
-    ).length;
-
-    const summary = [
-        {
-            title: "Total activos",
-            value: totalEquipos.toString(),
-            description: "Equipos registrados",
-            icon: Computer,
-        },
-        {
-            title: "Activos operativos",
-            value: activos.toString(),
-            description: "En uso institucional",
-            icon: CheckCircle2,
-        },
-        {
-            title: "En mantenimiento",
-            value: mantenimiento.toString(),
-            description: "Preventivo o correctivo",
-            icon: SlidersHorizontal,
-        },
-        {
-            title: "Servidores",
-            value: servidores.toString(),
-            description: "Infraestructura crítica",
-            icon: Server,
-        },
-    ];
-
-    const estados = ["Todos", ...Array.from(new Set(equipos.map((e) => e.estado)))];
+        router.push(`/inventario/${created.id}`);
+        router.refresh();
+    }
 
     return (
         <div className="space-y-6">
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {summary.map((item) => {
-                    const Icon = item.icon;
+            <section className="flex flex-col gap-4 rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <Link
+                        href="/inventario"
+                        className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-[#006b2e] transition hover:text-[#0b8f3a]"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Volver al inventario
+                    </Link>
 
-                    return (
-                        <article
-                            key={item.title}
-                            className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
-                        >
-                            <div className="mb-4 flex items-center justify-between">
-                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
-                                    <Icon className="h-5 w-5" />
-                                </div>
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-[#006b2e]">
+                        Nuevo activo tecnologico
+                    </p>
 
-                                <span className="rounded-full bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-500">
-                                    TIC
-                                </span>
-                            </div>
+                    <h2 className="mt-1 text-2xl font-black tracking-[-0.04em] text-[#14233b]">
+                        Registrar equipo TIC
+                    </h2>
 
-                            <p className="text-sm font-bold text-slate-500">{item.title}</p>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                        Ingresa la informacion tecnica, administrativa y de asignacion
+                        para crear la hoja de vida del activo.
+                    </p>
+                </div>
 
-                            <h3 className="mt-2 text-3xl font-black tracking-[-0.05em]">
-                                {item.value}
-                            </h3>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                                {item.description}
-                            </p>
-                        </article>
-                    );
-                })}
+                <div className="flex items-center gap-3 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-[#006b2e]">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Registro controlado
+                </div>
             </section>
 
-            <section className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 p-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#006b2e]">
-                                Inventario centralizado
-                            </p>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <section className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <SectionHeader
+                        icon={Computer}
+                        title="Informacion general del activo"
+                        description="Datos de identificacion, clasificacion y estado inicial."
+                    />
 
-                            <h2 className="mt-1 text-2xl font-black tracking-[-0.04em] text-[#14233b]">
-                                Activos tecnológicos registrados
-                            </h2>
-
-                            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                                Control de equipos de cómputo, servidores, portátiles y activos
-                                TIC asignados a funcionarios y dependencias de la Alcaldía.
-                            </p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-3">
-                            <button
-                                type="button"
-                                onClick={() => exportToCsv(filteredEquipos)}
-                                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:bg-slate-50"
-                            >
-                                <Download className="h-4 w-4" />
-                                Exportar
-                            </button>
-
-                            <Link
-                                href="/inventario/nuevo"
-                                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#006b2e] to-[#0b8f3a] px-4 text-sm font-black text-white shadow-lg shadow-green-900/20 transition hover:-translate-y-0.5"
-                            >
-                                <Plus className="h-4 w-4" />
-                                Registrar equipo
-                            </Link>
-                        </div>
-                    </div>
-
-                    <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
-                        <div className="flex h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm">
-                            <Search className="h-4 w-4 text-slate-400" />
-
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <Field label="Codigo interno" error={errors.codigoInterno?.message}>
                             <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(event) => setSearchTerm(event.target.value)}
-                                placeholder="Buscar por código, serial, marca, dependencia o funcionario..."
-                                className="h-full w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                                {...register("codigoInterno")}
+                                placeholder="Ej: TIC-PLA-001"
+                                className={inputClass}
                             />
-                        </div>
+                        </Field>
 
-                        <div className="flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm">
-                            <Filter className="h-4 w-4" />
-
-                            <select
-                                value={statusFilter}
-                                onChange={(event) => setStatusFilter(event.target.value)}
-                                className="bg-transparent outline-none"
-                            >
-                                {estados.map((estado) => (
-                                    <option key={estado} value={estado}>
-                                        {estado}
+                        <Field label="Tipo de equipo" error={errors.tipoEquipo?.message}>
+                            <select {...register("tipoEquipo")} className={inputClass}>
+                                {equipmentTypes.map((item) => (
+                                    <option key={item} value={item}>
+                                        {item}
                                     </option>
                                 ))}
                             </select>
-                        </div>
+                        </Field>
 
-                        <button className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:bg-green-50 hover:text-[#006b2e]">
-                            <SlidersHorizontal className="h-4 w-4" />
-                            Filtros
-                        </button>
+                        <Field label="Marca" error={errors.marca?.message}>
+                            <input
+                                {...register("marca")}
+                                placeholder="Ej: Dell, HP, Lenovo"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Modelo" error={errors.modelo?.message}>
+                            <input
+                                {...register("modelo")}
+                                placeholder="Ej: ProDesk 400"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Serial" error={errors.serial?.message}>
+                            <input
+                                {...register("serial")}
+                                placeholder="Serial de fabrica"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Estado" error={errors.estado?.message}>
+                            <select {...register("estado")} className={inputClass}>
+                                {statuses.map((item) => (
+                                    <option key={item} value={item}>
+                                        {item}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field label="Fecha de ingreso" error={errors.fechaIngreso?.message}>
+                            <input
+                                type="date"
+                                {...register("fechaIngreso")}
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Ubicacion fisica" error={errors.ubicacionFisica?.message}>
+                            <input
+                                {...register("ubicacionFisica")}
+                                placeholder="Ej: Planeacion, primer piso"
+                                className={inputClass}
+                            />
+                        </Field>
                     </div>
-                </div>
+                </section>
 
-                {error ? (
-                    <div className="m-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">
-                        {error}
+                <section className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <SectionHeader
+                        icon={HardDrive}
+                        title="Caracteristicas tecnicas"
+                        description="Base tecnica para soporte, mantenimiento y hoja de vida."
+                    />
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <Field label="Procesador" error={errors.procesador?.message}>
+                            <input
+                                {...register("procesador")}
+                                placeholder="Ej: Intel Core i5"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Memoria RAM" error={errors.memoriaRam?.message}>
+                            <input
+                                {...register("memoriaRam")}
+                                placeholder="Ej: 8 GB"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Almacenamiento" error={errors.almacenamiento?.message}>
+                            <input
+                                {...register("almacenamiento")}
+                                placeholder="Ej: SSD 512 GB"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Sistema operativo" error={errors.sistemaOperativo?.message}>
+                            <input
+                                {...register("sistemaOperativo")}
+                                placeholder="Ej: Windows 11 Pro"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Direccion IP">
+                            <input
+                                {...register("direccionIp")}
+                                placeholder="Ej: 192.168.1.50"
+                                className={inputClass}
+                            />
+                        </Field>
+
+                        <Field label="Direccion MAC">
+                            <input
+                                {...register("direccionMac")}
+                                placeholder="Ej: AA-BB-CC-00-11-22"
+                                className={inputClass}
+                            />
+                        </Field>
                     </div>
-                ) : null}
+                </section>
 
-                {isLoading ? (
-                    <div className="flex min-h-[260px] items-center justify-center p-8">
-                        <div className="rounded-2xl bg-green-50 px-5 py-4 text-sm font-bold text-[#006b2e]">
-                            Cargando inventario TIC...
-                        </div>
+                <section className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <SectionHeader
+                        icon={UserRound}
+                        title="Asignacion administrativa"
+                        description="Dependencia y funcionario responsable del activo."
+                    />
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <Field label="Dependencia" error={errors.dependencia?.message}>
+                            <select {...register("dependencia")} className={inputClass}>
+                                <option value="">Seleccione...</option>
+                                {dependencies.map((item) => (
+                                    <option key={item} value={item}>
+                                        {item}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+
+                        <Field
+                            label="Funcionario asignado"
+                            error={errors.funcionarioAsignado?.message}
+                        >
+                            <input
+                                {...register("funcionarioAsignado")}
+                                placeholder="Nombre del funcionario"
+                                className={inputClass}
+                            />
+                        </Field>
                     </div>
-                ) : filteredEquipos.length === 0 ? (
-                    <div className="flex min-h-[280px] flex-col items-center justify-center p-8 text-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
-                            <AlertTriangle className="h-6 w-6" />
-                        </div>
+                </section>
 
-                        <h3 className="text-lg font-black text-[#14233b]">
-                            No hay equipos para mostrar
-                        </h3>
+                <section className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm">
+                    <SectionHeader
+                        icon={ClipboardList}
+                        title="Observaciones"
+                        description="Informacion adicional para soporte, entrega o seguimiento."
+                    />
 
-                        <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-                            Registra el primer activo TIC o ajusta los filtros de búsqueda.
+                    <textarea
+                        {...register("observaciones")}
+                        rows={5}
+                        placeholder="Observaciones tecnicas o administrativas..."
+                        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10"
+                    />
+                </section>
+
+                <section className="sticky bottom-0 z-10 rounded-[1.5rem] border border-slate-200 bg-white/90 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <p className="text-sm text-slate-500">
+                            Al guardar se creara la ficha del activo y quedara disponible
+                            para mantenimientos, reportes y hoja de vida.
                         </p>
 
-                        <Link
-                            href="/inventario/nuevo"
-                            className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#006b2e] to-[#0b8f3a] px-4 text-sm font-black text-white shadow-lg shadow-green-900/20 transition hover:-translate-y-0.5"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Registrar equipo
-                        </Link>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <Link
+                                href="/inventario"
+                                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                            >
+                                Cancelar
+                            </Link>
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#006b2e] to-[#0b8f3a] px-5 text-sm font-black text-white shadow-lg shadow-green-900/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                                <Save className="h-4 w-4" />
+                                {isSubmitting ? "Guardando..." : "Guardar equipo"}
+                            </button>
+                        </div>
                     </div>
-                ) : (
-                    <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[1100px] border-collapse text-left">
-                                <thead>
-                                    <tr className="border-b border-slate-100 bg-slate-50/80 text-xs uppercase tracking-wide text-slate-500">
-                                        <th className="px-5 py-4 font-black">Activo</th>
-                                        <th className="px-5 py-4 font-black">Marca / Modelo</th>
-                                        <th className="px-5 py-4 font-black">Serial</th>
-                                        <th className="px-5 py-4 font-black">Dependencia</th>
-                                        <th className="px-5 py-4 font-black">Asignado a</th>
-                                        <th className="px-5 py-4 font-black">Características</th>
-                                        <th className="px-5 py-4 font-black">Estado</th>
-                                        <th className="px-5 py-4 text-right font-black">
-                                            Acciones
-                                        </th>
-                                    </tr>
-                                </thead>
-
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredEquipos.map((equipment) => {
-                                        const Icon = getEquipmentIcon(equipment.tipoEquipo);
-
-                                        return (
-                                            <tr
-                                                key={equipment.id}
-                                                className="bg-white transition hover:bg-green-50/40"
-                                            >
-                                                <td className="px-5 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
-                                                            <Icon className="h-5 w-5" />
-                                                        </div>
-
-                                                        <div>
-                                                            <p className="text-sm font-black text-[#14233b]">
-                                                                {equipment.codigoInterno}
-                                                            </p>
-                                                            <p className="mt-1 text-xs text-slate-500">
-                                                                {equipment.tipoEquipo}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-5 py-4">
-                                                    <p className="text-sm font-black text-slate-800">
-                                                        {equipment.marca}
-                                                    </p>
-                                                    <p className="mt-1 text-xs text-slate-500">
-                                                        {equipment.modelo}
-                                                    </p>
-                                                </td>
-
-                                                <td className="px-5 py-4">
-                                                    <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
-                                                        {equipment.serial}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-5 py-4">
-                                                    <p className="text-sm font-bold text-slate-700">
-                                                        {equipment.dependencia}
-                                                    </p>
-                                                </td>
-
-                                                <td className="px-5 py-4">
-                                                    <p className="text-sm text-slate-600">
-                                                        {equipment.funcionarioAsignado}
-                                                    </p>
-                                                </td>
-
-                                                <td className="px-5 py-4">
-                                                    <p className="text-xs font-bold text-slate-700">
-                                                        {equipment.procesador} · {equipment.memoriaRam}
-                                                    </p>
-                                                    <p className="mt-1 text-xs text-slate-500">
-                                                        {equipment.almacenamiento} ·{" "}
-                                                        {equipment.sistemaOperativo}
-                                                    </p>
-                                                </td>
-
-                                                <td className="px-5 py-4">
-                                                    <span
-                                                        className={`rounded-full px-3 py-1 text-[11px] font-black ${getStatusClass(
-                                                            equipment.estado
-                                                        )}`}
-                                                    >
-                                                        {equipment.estado}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-5 py-4">
-                                                    <div className="flex justify-end gap-2">
-                                                        <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-green-50 hover:text-[#006b2e]">
-                                                            <Eye className="h-4 w-4" />
-                                                        </button>
-
-                                                        <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-                            <p>
-                                Mostrando{" "}
-                                <strong className="text-slate-800">
-                                    {filteredEquipos.length}
-                                </strong>{" "}
-                                de <strong className="text-slate-800">{equipos.length}</strong>{" "}
-                                activos registrados.
-                            </p>
-
-                            <div className="flex items-center gap-2">
-                                <button className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-500">
-                                    Anterior
-                                </button>
-                                <button className="rounded-xl bg-[#006b2e] px-3 py-2 text-xs font-black text-white">
-                                    1
-                                </button>
-                                <button className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-500">
-                                    Siguiente
-                                </button>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </section>
+                </section>
+            </form>
         </div>
+    );
+}
+
+const inputClass =
+    "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10";
+
+function SectionHeader({
+    icon: Icon,
+    title,
+    description,
+}: {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+}) {
+    return (
+        <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
+                <Icon className="h-5 w-5" />
+            </div>
+
+            <div>
+                <h3 className="text-lg font-black text-[#14233b]">{title}</h3>
+                <p className="text-sm text-slate-500">{description}</p>
+            </div>
+        </div>
+    );
+}
+
+function Field({
+    label,
+    error,
+    children,
+}: {
+    label: string;
+    error?: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <label className="block">
+            <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-600">
+                {label}
+            </span>
+
+            {children}
+
+            {error ? (
+                <span className="mt-2 block text-xs font-bold text-red-600">
+                    {error}
+                </span>
+            ) : null}
+        </label>
     );
 }
