@@ -275,9 +275,9 @@ export function AppTopbar() {
     }
 
     return (
-        <header className="sticky top-0 z-20 border-b border-green-900/10 bg-white/85 px-5 py-4 backdrop-blur lg:px-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-20 border-b border-green-900/10 bg-white/85 px-4 py-4 backdrop-blur sm:px-5 lg:px-6">
+            <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
                     <button
                         type="button"
                         className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm lg:hidden"
@@ -285,18 +285,18 @@ export function AppTopbar() {
                         <Menu className="h-5 w-5 text-slate-600" />
                     </button>
 
-                    <div>
+                    <div className="min-w-0">
                         <p className="text-xs font-black uppercase tracking-[0.28em] text-[#006b2e]">
                             {currentPage.subtitle}
                         </p>
 
-                        <h1 className="mt-1 text-2xl font-black tracking-[-0.04em] text-[#14233b] md:text-3xl">
+                        <h1 className="mt-1 truncate text-2xl font-black tracking-[-0.04em] text-[#14233b] md:text-3xl">
                             {currentPage.title}
                         </h1>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-3 md:flex-nowrap md:justify-end">
                     <div className="relative hidden md:block">
                         <form
                             onSubmit={handleSearchSubmit}
@@ -313,7 +313,7 @@ export function AppTopbar() {
                                 }}
                                 onFocus={() => setIsSearchOpen(true)}
                                 placeholder="Buscar módulo, ticket o equipo..."
-                                className="w-64 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                                className="w-56 bg-transparent text-sm outline-none placeholder:text-slate-400 xl:w-72"
                             />
                         </form>
 
@@ -395,7 +395,7 @@ export function AppTopbar() {
                         ) : null}
                     </div>
 
-                    <div className="flex h-11 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 shadow-sm">
+                    <div className="flex h-11 min-w-0 max-w-[16rem] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 shadow-sm">
                         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-green-50 text-[#006b2e]">
                             <UserRound className="h-4 w-4" />
                         </div>

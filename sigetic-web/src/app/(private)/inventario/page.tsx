@@ -237,8 +237,8 @@ export default function InventoryPage() {
 
             <section className="overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-100 p-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <div>
+                    <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="min-w-0">
                             <p className="text-xs font-black uppercase tracking-[0.24em] text-[#006b2e]">
                                 Inventario centralizado
                             </p>
@@ -253,7 +253,7 @@ export default function InventoryPage() {
                             </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex shrink-0 flex-wrap gap-3">
                             <button
                                 type="button"
                                 onClick={() => exportToCsv(filteredEquipos)}
@@ -341,18 +341,9 @@ export default function InventoryPage() {
                         </h3>
 
                         <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-                            Registra el primer activo TIC o ajusta los filtros de búsqueda.
+                            Usa el boton Registrar equipo de la parte superior o ajusta los
+                            filtros de busqueda.
                         </p>
-
-                        {canManageTechnical ? (
-                            <Link
-                                href="/inventario/nuevo"
-                                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#006b2e] to-[#0b8f3a] px-4 text-sm font-black text-white shadow-lg shadow-green-900/20 transition hover:-translate-y-0.5"
-                            >
-                                <Plus className="h-4 w-4" />
-                                Registrar equipo
-                            </Link>
-                        ) : null}
                     </div>
                 ) : (
                     <>

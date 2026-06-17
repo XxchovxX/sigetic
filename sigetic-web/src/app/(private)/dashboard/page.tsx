@@ -111,8 +111,8 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
             <section className="overflow-hidden rounded-[2rem] bg-gradient-to-r from-[#006b2e] via-[#0b8f3a] to-[#13a34a] p-6 text-white shadow-xl shadow-green-900/20">
-                <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
-                    <div>
+                <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                    <div className="min-w-0">
                         <p className="text-xs font-black uppercase tracking-[0.32em] text-yellow-300">
                             San Carlos Avanza
                         </p>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
 
                     <Link
                         href="/tickets/nuevo"
-                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-[#006b2e] shadow-lg transition hover:-translate-y-0.5"
+                        className="inline-flex h-12 w-fit items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-[#006b2e] shadow-lg transition hover:-translate-y-0.5 lg:justify-self-end"
                     >
                         Crear ticket
                         <HelpCircle className="h-4 w-4" />
@@ -187,11 +187,11 @@ export default function DashboardPage() {
                             const Icon = item.icon;
 
                             return (
-                                <Link key={item.title} href={item.href} className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-green-50">
+                                <Link key={item.title} href={item.href} className="flex min-w-0 items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-green-50">
                                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
                                         <Icon className="h-5 w-5" />
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <p className="text-sm font-black text-slate-800">{item.title}</p>
                                         <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
                                     </div>

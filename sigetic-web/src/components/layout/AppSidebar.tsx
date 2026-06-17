@@ -193,7 +193,7 @@ export function AppSidebar() {
     const visibleItems = menuItems.filter((item) => canSeeItem(user, item));
 
     return (
-        <aside className="hidden border-r border-green-900/10 bg-white px-4 py-5 lg:block">
+        <aside className="hidden w-72 border-r border-green-900/10 bg-white px-4 py-5 lg:block">
             <div className="mb-8 rounded-[1.7rem] bg-gradient-to-br from-[#006b2e] to-[#0b8f3a] p-5 text-white shadow-xl shadow-green-900/20">
                 <div className="mb-4 flex h-20 w-full items-center justify-center rounded-2xl bg-white p-3 shadow-lg shadow-green-950/20">
                     <Image

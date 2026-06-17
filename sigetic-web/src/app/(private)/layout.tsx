@@ -9,16 +9,18 @@ export default function PrivateLayout({
 }>) {
     return (
         <AuthGuard>
-            <main className="min-h-dvh bg-[#f3f8f5] text-[#14233b]">
-                <div className="grid min-h-dvh lg:grid-cols-[280px_1fr]">
+            <main className="min-h-dvh overflow-x-hidden bg-[#f3f8f5] text-[#14233b]">
+                <div className="grid min-h-dvh lg:grid-cols-[18rem_minmax(0,1fr)]">
                     <AppSidebar />
 
-                    <section className="min-w-0">
+                    <section className="min-w-0 overflow-x-hidden">
                         <AppTopbar />
 
-                        <div className="px-5 py-6 lg:px-8">{children}</div>
+                        <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-5 lg:px-6">
+                            {children}
+                        </div>
 
-                        <footer className="px-5 pb-6 text-center lg:px-8">
+                        <footer className="mx-auto w-full max-w-[1440px] px-4 pb-6 text-center sm:px-5 lg:px-6">
                             <p className="text-[11px] font-black uppercase leading-5 tracking-[0.18em] text-slate-500">
                                 DESARROLLADO POR ING. CRISTIAN HUMBERTO OVALLE VARÓN
                             </p>
