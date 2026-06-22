@@ -64,11 +64,11 @@ public sealed class MantenimientoImpresoraConfiguration : IEntityTypeConfigurati
 
         entity.Property(e => e.FirmaTecnico)
             .HasColumnName("firma_tecnico")
-            .HasMaxLength(500);
+            .HasColumnType("text");
 
         entity.Property(e => e.FirmaRecibe)
             .HasColumnName("firma_recibe")
-            .HasMaxLength(500);
+            .HasColumnType("text");
 
         entity.Property(e => e.NombreRecibe)
             .HasColumnName("nombre_recibe")

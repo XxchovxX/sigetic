@@ -8,6 +8,7 @@ import jsPDF from "jspdf";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { SignatureImageInput } from "@/components/forms/SignatureImageInput";
 import {
     AlertTriangle,
     ArrowLeft,
@@ -434,7 +435,7 @@ async function exportEquipmentLifeSheetPdf(
             if (item.fechaFirmaUtc) {
                 addRow(
                     "Firma interna",
-                    `Tecnico: ${item.firmaTecnico || item.tecnicoResponsable} | Recibe: ${item.firmaRecibe || item.nombreRecibe || "No registrado"}${item.documentoRecibe ? ` | Documento: ${item.documentoRecibe}` : ""}`
+                    `Técnico: ${isSignatureImage(item.firmaTecnico) ? "Firma escaneada adjunta" : item.firmaTecnico || item.tecnicoResponsable} | Recibe: ${isSignatureImage(item.firmaRecibe) ? "Firma escaneada adjunta" : item.firmaRecibe || item.nombreRecibe || "No registrado"}${item.documentoRecibe ? ` | Documento: ${item.documentoRecibe}` : ""} | Firmado electrónicamente para uso interno`
                 );
             }
         });
@@ -1096,19 +1097,27 @@ export default function EquipmentDetailPage() {
                             </Field>
 
                             <div className="grid gap-4 md:grid-cols-2">
-                                <Field label="Firma tecnico">
-                                    <input
-                                        {...maintenanceForm.register("firmaTecnico")}
-                                        placeholder="Nombre/firma interna del tecnico"
-                                        className={inputClass}
+                                <Field label="Firma técnico">
+                                    <SignatureImageInput
+                                        value={maintenanceForm.watch("firmaTecnico")}
+                                        onChange={(value) =>
+                                            maintenanceForm.setValue("firmaTecnico", value, {
+                                                shouldDirty: true,
+                                            })
+                                        }
+                                        placeholder="Nombre/firma interna del técnico"
                                     />
                                 </Field>
 
                                 <Field label="Firma recibe">
-                                    <input
-                                        {...maintenanceForm.register("firmaRecibe")}
+                                    <SignatureImageInput
+                                        value={maintenanceForm.watch("firmaRecibe")}
+                                        onChange={(value) =>
+                                            maintenanceForm.setValue("firmaRecibe", value, {
+                                                shouldDirty: true,
+                                            })
+                                        }
                                         placeholder="Nombre/firma interna de quien recibe"
-                                        className={inputClass}
                                     />
                                 </Field>
                             </div>
@@ -1210,10 +1219,28 @@ export default function EquipmentDetailPage() {
                                         ) : null}
 
                                         {item.fechaFirmaUtc ? (
-                                            <MiniDetail
-                                                title="Firma interna"
-                                                value={`Tecnico: ${item.firmaTecnico || item.tecnicoResponsable} | Recibe: ${item.firmaRecibe || item.nombreRecibe || "No registrado"}${item.documentoRecibe ? ` | Documento: ${item.documentoRecibe}` : ""}`}
-                                            />
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                <SignaturePreview
+                                                    title="Firma técnico"
+                                                    value={item.firmaTecnico}
+                                                    fallback={item.tecnicoResponsable}
+                                                />
+                                                <SignaturePreview
+                                                    title="Firma recibe"
+                                                    value={item.firmaRecibe}
+                                                    fallback={item.nombreRecibe || "No registrado"}
+                                                />
+                                                {item.documentoRecibe ? (
+                                                    <MiniDetail
+                                                        title="Documento recibe"
+                                                        value={item.documentoRecibe}
+                                                    />
+                                                ) : null}
+                                                <MiniDetail
+                                                    title="Validación"
+                                                    value="Firmado electrónicamente para uso interno"
+                                                />
+                                            </div>
                                         ) : null}
                                     </div>
                                 </div>
@@ -1319,6 +1346,42 @@ function Field({
                 </span>
             ) : null}
         </label>
+    );
+}
+
+function isSignatureImage(value?: string | null) {
+    return Boolean(value?.startsWith("data:image/"));
+}
+
+function SignaturePreview({
+    title,
+    value,
+    fallback,
+}: {
+    title: string;
+    value?: string | null;
+    fallback: string;
+}) {
+    const displayValue = value || fallback;
+
+    return (
+        <div>
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                {title}
+            </p>
+            {isSignatureImage(displayValue) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={displayValue}
+                    alt={title}
+                    className="mt-2 max-h-20 max-w-full rounded-xl border border-slate-200 bg-white object-contain p-2"
+                />
+            ) : (
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                    {displayValue}
+                </p>
+            )}
+        </div>
     );
 }
 

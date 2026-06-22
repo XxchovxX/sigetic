@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { SignatureImageInput } from "@/components/forms/SignatureImageInput";
 import { exportImpresoraPdf } from "@/lib/pdf-impresora";
 import {
     Download,
@@ -411,21 +412,19 @@ export default function DetalleImpresoraPage() {
                         </Field>
 
                         <div className="grid gap-4 md:grid-cols-2">
-                            <Field label="Firma tecnico">
-                                <input
+                            <Field label="Firma técnico">
+                                <SignatureImageInput
                                     value={firmaTecnico}
-                                    onChange={(event) => setFirmaTecnico(event.target.value)}
-                                    placeholder="Nombre/firma interna del tecnico"
-                                    className={inputClass}
+                                    onChange={setFirmaTecnico}
+                                    placeholder="Nombre/firma interna del técnico"
                                 />
                             </Field>
 
                             <Field label="Firma recibe">
-                                <input
+                                <SignatureImageInput
                                     value={firmaRecibe}
-                                    onChange={(event) => setFirmaRecibe(event.target.value)}
+                                    onChange={setFirmaRecibe}
                                     placeholder="Nombre/firma interna de quien recibe"
-                                    className={inputClass}
                                 />
                             </Field>
                         </div>
@@ -579,9 +578,26 @@ export default function DetalleImpresoraPage() {
                                 Técnico: {item.tecnicoResponsable}
                             </p>
                             {item.fechaFirmaUtc ? (
-                                <p className="mt-2 text-xs font-bold text-[#006b2e]">
-                                    Firma interna: {item.firmaTecnico || item.tecnicoResponsable} / {item.firmaRecibe || item.nombreRecibe || "No registrado"}
-                                </p>
+                                <div className="mt-3 grid gap-3 rounded-2xl border border-green-100 bg-white p-3 md:grid-cols-2">
+                                    <SignaturePreview
+                                        title="Firma técnico"
+                                        value={item.firmaTecnico}
+                                        fallback={item.tecnicoResponsable}
+                                    />
+                                    <SignaturePreview
+                                        title="Firma recibe"
+                                        value={item.firmaRecibe}
+                                        fallback={item.nombreRecibe || "No registrado"}
+                                    />
+                                    {item.documentoRecibe ? (
+                                        <p className="text-xs font-bold text-slate-500">
+                                            Documento: {item.documentoRecibe}
+                                        </p>
+                                    ) : null}
+                                    <p className="text-xs font-black text-[#006b2e]">
+                                        Firmado electrónicamente para uso interno
+                                    </p>
+                                </div>
                             ) : null}
                         </article>
                     ))}
@@ -682,6 +698,42 @@ function Field({
             </span>
             {children}
         </label>
+    );
+}
+
+function isSignatureImage(value?: string | null) {
+    return Boolean(value?.startsWith("data:image/"));
+}
+
+function SignaturePreview({
+    title,
+    value,
+    fallback,
+}: {
+    title: string;
+    value?: string | null;
+    fallback: string;
+}) {
+    const displayValue = value || fallback;
+
+    return (
+        <div>
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                {title}
+            </p>
+            {isSignatureImage(displayValue) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={displayValue}
+                    alt={title}
+                    className="mt-2 max-h-20 max-w-full rounded-xl border border-slate-200 bg-white object-contain p-2"
+                />
+            ) : (
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                    {displayValue}
+                </p>
+            )}
+        </div>
     );
 }
 

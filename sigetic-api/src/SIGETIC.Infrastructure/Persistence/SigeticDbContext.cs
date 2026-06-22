@@ -194,7 +194,9 @@ public sealed class SigeticDbContext : DbContext
         return propertyName.Contains("Password", StringComparison.OrdinalIgnoreCase) ||
             propertyName.Contains("Hash", StringComparison.OrdinalIgnoreCase) ||
             propertyName.Contains("Token", StringComparison.OrdinalIgnoreCase) ||
-            propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase);
+            propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("Firma", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("Documento", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string FormatAuditValue(object? value)
@@ -380,11 +382,11 @@ public sealed class SigeticDbContext : DbContext
 
             entity.Property(e => e.FirmaTecnico)
                 .HasColumnName("firma_tecnico")
-                .HasMaxLength(500);
+                .HasColumnType("text");
 
             entity.Property(e => e.FirmaRecibe)
                 .HasColumnName("firma_recibe")
-                .HasMaxLength(500);
+                .HasColumnType("text");
 
             entity.Property(e => e.NombreRecibe)
                 .HasColumnName("nombre_recibe")
