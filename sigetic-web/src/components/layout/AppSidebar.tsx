@@ -14,6 +14,7 @@ import {
     Monitor,
     Package,
     Printer,
+    ScrollText,
     Settings,
     UsersRound,
 } from "lucide-react";
@@ -158,6 +159,12 @@ const menuItems: MenuItem[] = [
             ROLES.financialSecretary,
             ROLES.readOnly,
         ],
+    },
+    {
+        title: "Auditoría",
+        href: "/auditoria",
+        icon: ScrollText,
+        roles: [ROLES.admin, ROLES.ticAdmin],
     },
     {
         title: "Configuración",

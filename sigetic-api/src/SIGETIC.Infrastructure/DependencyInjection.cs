@@ -13,6 +13,7 @@ using SIGETIC.Application.Consumibles;
 using SIGETIC.Application.Dashboard;
 using SIGETIC.Application.Tickets;
 using SIGETIC.Application.Analitica;
+using SIGETIC.Application.Auditoria;
 
 namespace SIGETIC.Infrastructure;
 
@@ -27,6 +28,8 @@ public static class DependencyInjection
             options.UseNpgsql(GetDatabaseConnectionString(configuration));
         });
 
+        services.AddHttpContextAccessor();
+
         services.AddScoped<IEquipoService, EquipoService>();
         services.AddScoped<IMantenimientoEquipoService, MantenimientoEquipoService>();
         services.AddScoped<IBajaEquipoService, BajaEquipoService>();
@@ -40,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailNotificationService, EmailNotificationService>();
         services.AddScoped<ITicketService, TicketService>();
         services.AddScoped<IAnaliticaService, AnaliticaService>();
+        services.AddScoped<IAuditoriaService, AuditoriaService>();
 
         return services;
     }

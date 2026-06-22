@@ -120,6 +120,10 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
         return hasRole(user, allRoles);
     }
 
+    if (pathname.startsWith("/auditoria")) {
+        return hasRole(user, [ROLES.admin, ROLES.ticAdmin]);
+    }
+
     if (pathname.startsWith("/reportes") || pathname.startsWith("/analitica")) {
         return hasRole(user, [
             ROLES.ticAdmin,

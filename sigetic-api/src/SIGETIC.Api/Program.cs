@@ -101,6 +101,11 @@ builder.Services.AddAuthorization(options =>
         "Secretario Administrativo Financiero",
         "Consulta / Control Interno"
     ];
+    string[] audit =
+    [
+        "Administrador",
+        "Administrador TIC"
+    ];
     string[] tickets =
     [
         "Administrador",
@@ -120,6 +125,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Dashboard", policy => policy.RequireRole(dashboard));
     options.AddPolicy("ReportesAnalitica", policy => policy.RequireRole(reports));
     options.AddPolicy("MesaAyuda", policy => policy.RequireRole(tickets));
+    options.AddPolicy("Auditoria", policy => policy.RequireRole(audit));
 });
 
 var app = builder.Build();
@@ -159,6 +165,7 @@ app.MapGet("/", () =>
             "/api/consumibles",
             "/api/tickets",
             "/api/analitica",
+            "/api/auditoria",
             "/api/dashboard/resumen"
         },
         timestampUtc = DateTime.UtcNow
@@ -183,6 +190,7 @@ app.MapConsumibleEndpoints();
 app.MapTicketEndpoints();
 app.MapAnaliticaEndpoints();
 app.MapDashboardEndpoints();
+app.MapAuditoriaEndpoints();
 
 app.Run();
 

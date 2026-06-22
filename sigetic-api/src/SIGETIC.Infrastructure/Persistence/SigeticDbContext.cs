@@ -1,4 +1,8 @@
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using SIGETIC.Domain.Entities;
 using SIGETIC.Infrastructure.Security;
 
@@ -6,9 +10,14 @@ namespace SIGETIC.Infrastructure.Persistence;
 
 public sealed class SigeticDbContext : DbContext
 {
-    public SigeticDbContext(DbContextOptions<SigeticDbContext> options)
+    private readonly IHttpContextAccessor? _httpContextAccessor;
+
+    public SigeticDbContext(
+        DbContextOptions<SigeticDbContext> options,
+        IHttpContextAccessor? httpContextAccessor = null)
         : base(options)
     {
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public DbSet<Equipo> Equipos => Set<Equipo>();
@@ -29,6 +38,15 @@ public sealed class SigeticDbContext : DbContext
     public DbSet<MovimientoConsumible> MovimientosConsumibles => Set<MovimientoConsumible>();
     public DbSet<TicketMesaAyuda> TicketsMesaAyuda => Set<TicketMesaAyuda>();
     public DbSet<TicketMesaAyudaHistorial> TicketsMesaAyudaHistorial => Set<TicketMesaAyudaHistorial>();
+    public DbSet<AuditoriaRegistro> AuditoriaRegistros => Set<AuditoriaRegistro>();
+
+    public override Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        AddAuditRecords();
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +59,7 @@ public sealed class SigeticDbContext : DbContext
         ConfigureBajasEquipo(modelBuilder);
         ConfigureTicketsMesaAyuda(modelBuilder);
         ConfigureTicketsMesaAyudaHistorial(modelBuilder);
+        ConfigureAuditoriaRegistros(modelBuilder);
 
         ConfigureRoles(modelBuilder);
         ConfigurePermisos(modelBuilder);
@@ -50,6 +69,151 @@ public sealed class SigeticDbContext : DbContext
         ConfigureFuncionarios(modelBuilder);
 
         SeedAdministracion(modelBuilder);
+    }
+
+    private void AddAuditRecords()
+    {
+        var entries = ChangeTracker.Entries()
+            .Where(entry =>
+                entry.Entity is not AuditoriaRegistro &&
+                entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var context = _httpContextAccessor?.HttpContext;
+        var user = context?.User;
+        var actor = user?.FindFirstValue(ClaimTypes.Name) ??
+            user?.FindFirstValue(ClaimTypes.Email) ??
+            "Sistema";
+        var role = user?.FindFirstValue(ClaimTypes.Role);
+        var method = context?.Request.Method;
+        var path = context?.Request.Path.Value;
+        var ip = context?.Connection.RemoteIpAddress?.ToString();
+
+        foreach (var entry in entries)
+        {
+            var action = entry.State switch
+            {
+                EntityState.Added => "Creación",
+                EntityState.Modified => "Actualización",
+                EntityState.Deleted => "Eliminación",
+                _ => "Cambio"
+            };
+
+            AuditoriaRegistros.Add(new AuditoriaRegistro(
+                GetModuleName(entry.Entity.GetType().Name),
+                action,
+                entry.Entity.GetType().Name,
+                GetRecordId(entry),
+                actor,
+                role,
+                method,
+                path,
+                ip,
+                BuildChangeSummary(entry)));
+        }
+    }
+
+    private static string? GetRecordId(EntityEntry entry)
+    {
+        var property = entry.Properties
+            .FirstOrDefault(e => e.Metadata.Name == "Id");
+
+        return property?.CurrentValue?.ToString() ??
+            property?.OriginalValue?.ToString();
+    }
+
+    private static string GetModuleName(string entityName)
+    {
+        return entityName switch
+        {
+            nameof(Equipo) or nameof(MantenimientoEquipo) or nameof(BajaEquipo) => "Inventario TIC",
+            nameof(Impresora) or nameof(MantenimientoImpresora) or nameof(HistorialConsumibleImpresora) => "Impresoras",
+            nameof(Consumible) or nameof(MovimientoConsumible) => "Consumibles",
+            nameof(TicketMesaAyuda) or nameof(TicketMesaAyudaHistorial) => "Mesa de ayuda",
+            nameof(Usuario) or nameof(Rol) or nameof(Permiso) or nameof(RolPermiso) => "Configuración",
+            nameof(Dependencia) => "Dependencias",
+            nameof(Funcionario) => "Funcionarios",
+            _ => "Sistema"
+        };
+    }
+
+    private static string BuildChangeSummary(EntityEntry entry)
+    {
+        var builder = new StringBuilder();
+        var properties = entry.Properties
+            .Where(property => !IsSensitiveProperty(property.Metadata.Name))
+            .ToList();
+
+        foreach (var property in properties)
+        {
+            if (entry.State == EntityState.Modified && !property.IsModified)
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append("; ");
+            }
+
+            builder.Append(property.Metadata.Name);
+
+            if (entry.State == EntityState.Modified)
+            {
+                builder.Append(": ");
+                builder.Append(FormatAuditValue(property.OriginalValue));
+                builder.Append(" -> ");
+                builder.Append(FormatAuditValue(property.CurrentValue));
+            }
+            else
+            {
+                builder.Append("=");
+                builder.Append(FormatAuditValue(
+                    entry.State == EntityState.Deleted
+                        ? property.OriginalValue
+                        : property.CurrentValue));
+            }
+
+            if (builder.Length > 1800)
+            {
+                builder.Append("; ...");
+                break;
+            }
+        }
+
+        return builder.Length == 0 ? "Sin cambios materiales." : builder.ToString();
+    }
+
+    private static bool IsSensitiveProperty(string propertyName)
+    {
+        return propertyName.Contains("Password", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("Hash", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("Token", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatAuditValue(object? value)
+    {
+        if (value is null)
+        {
+            return "(vacío)";
+        }
+
+        var formatted = value switch
+        {
+            DateTime dateTime => dateTime.ToString("O"),
+            DateOnly dateOnly => dateOnly.ToString("yyyy-MM-dd"),
+            _ => value.ToString() ?? string.Empty
+        };
+
+        return formatted.Length <= 120
+            ? formatted
+            : $"{formatted[..120]}...";
     }
 
     private static void ConfigureEquipos(ModelBuilder modelBuilder)
@@ -471,6 +635,72 @@ public sealed class SigeticDbContext : DbContext
 
             entity.HasIndex(e => e.TicketId);
             entity.HasIndex(e => e.FechaEventoUtc);
+        });
+    }
+
+    private static void ConfigureAuditoriaRegistros(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AuditoriaRegistro>(entity =>
+        {
+            entity.ToTable("auditoria_registros");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.Modulo)
+                .HasColumnName("modulo")
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(e => e.Accion)
+                .HasColumnName("accion")
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(e => e.Entidad)
+                .HasColumnName("entidad")
+                .HasMaxLength(120)
+                .IsRequired();
+
+            entity.Property(e => e.RegistroId)
+                .HasColumnName("registro_id")
+                .HasMaxLength(80);
+
+            entity.Property(e => e.Usuario)
+                .HasColumnName("usuario")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.Rol)
+                .HasColumnName("rol")
+                .HasMaxLength(120);
+
+            entity.Property(e => e.MetodoHttp)
+                .HasColumnName("metodo_http")
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Ruta)
+                .HasColumnName("ruta")
+                .HasMaxLength(300);
+
+            entity.Property(e => e.DireccionIp)
+                .HasColumnName("direccion_ip")
+                .HasMaxLength(80);
+
+            entity.Property(e => e.Resumen)
+                .HasColumnName("resumen")
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.FechaEventoUtc)
+                .HasColumnName("fecha_evento_utc")
+                .IsRequired();
+
+            entity.HasIndex(e => e.FechaEventoUtc);
+            entity.HasIndex(e => e.Modulo);
+            entity.HasIndex(e => e.Accion);
+            entity.HasIndex(e => e.Usuario);
         });
     }
 
