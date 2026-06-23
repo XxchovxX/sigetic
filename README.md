@@ -15,6 +15,16 @@ SIGETIC centraliza la mesa de ayuda, inventario tecnologico, hojas de vida de eq
 - Analitica, presupuestos y alertas.
 - Reportes PDF y Excel.
 - Administracion de usuarios, roles, dependencias y funcionarios.
+- Auditoria de acciones del sistema.
+- Manuales de usuario por rol.
+
+## Manuales de usuario
+
+Los manuales operativos se encuentran en:
+
+```text
+docs/manuales/README.md
+```
 
 ## Estructura del proyecto
 
@@ -69,4 +79,3 @@ Los ejemplos seguros se mantienen como referencia:
 
 - `.env.web.example`
 - `appsettings.Production.example.json`
-
