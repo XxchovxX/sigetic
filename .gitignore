@@ -20,6 +20,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+~$*
 
 # Variables y secretos
 .env
@@ -34,6 +35,8 @@ sigetic-api/src/SIGETIC.Api/appsettings.Production.json
 *.dump
 *.bak
 *.backup
+*.sql.gz
+backups/
 
 # Publicacion local
 publish/
