@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -34,10 +35,11 @@ from reportlab.platypus import (
 
 ROOT = Path(__file__).resolve().parents[1]
 MANUALS_DIR = ROOT / "docs" / "manuales"
-OUTPUT_DIR = MANUALS_DIR / "generados"
+OUTPUT_DIR = Path(os.environ.get("SIGETIC_MANUAL_OUTPUT", MANUALS_DIR / "generados")).resolve()
 DOCX_DIR = OUTPUT_DIR / "word"
 PDF_DIR = OUTPUT_DIR / "pdf"
 LOGO_PATH = ROOT / "sigetic-web" / "public" / "identity" / "logo-alcaldia.png"
+FOOTER_PATH = ROOT / "sigetic-web" / "public" / "pdf" / "pie-pagina-alcaldia.png"
 
 GREEN = "007A33"
 DARK_GREEN = "005C2A"
@@ -247,22 +249,10 @@ def add_docx_footer(section) -> None:
     footer.is_linked_to_previous = False
     footer_p = footer.paragraphs[0]
     footer_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = footer_p.add_run("DESARROLLADO POR ING. CRISTIAN HUMBERTO OVALLE VARÓN")
-    r.bold = True
-    r.font.name = "Arial"
-    r._element.rPr.rFonts.set(qn("w:ascii"), "Arial")
-    r._element.rPr.rFonts.set(qn("w:hAnsi"), "Arial")
-    r.font.size = Pt(8)
-    r.font.color.rgb = RGBColor.from_string(MUTED)
-    p2 = footer.add_paragraph()
-    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r2 = p2.add_run("ALCALDÍA DE SAN CARLOS DE GUAROA")
-    r2.bold = True
-    r2.font.name = "Arial"
-    r2._element.rPr.rFonts.set(qn("w:ascii"), "Arial")
-    r2._element.rPr.rFonts.set(qn("w:hAnsi"), "Arial")
-    r2.font.size = Pt(8)
-    r2.font.color.rgb = RGBColor.from_string(DARK_GREEN)
+    footer_p.paragraph_format.space_before = Pt(0)
+    footer_p.paragraph_format.space_after = Pt(0)
+    run = footer_p.add_run()
+    run.add_picture(str(FOOTER_PATH), width=Inches(7.1), height=Inches(1.0))
 
 
 def configure_docx(doc: Document, spec: ManualSpec) -> None:
@@ -270,11 +260,11 @@ def configure_docx(doc: Document, spec: ManualSpec) -> None:
     section.page_width = Inches(8.5)
     section.page_height = Inches(11)
     section.top_margin = Inches(1.55)
-    section.bottom_margin = Inches(0.85)
+    section.bottom_margin = Inches(1.05)
     section.left_margin = Inches(0.75)
     section.right_margin = Inches(0.75)
     section.header_distance = Inches(0.25)
-    section.footer_distance = Inches(0.25)
+    section.footer_distance = Inches(0.05)
     add_docx_header(section, spec)
     add_docx_footer(section)
 
@@ -432,11 +422,15 @@ class HeaderFooterCanvas(canvas.Canvas):
         for idx, text in enumerate(meta):
             self.drawString(x + left_w + mid_w + 0.08 * inch, y - (idx + 0.68) * row_h, text)
 
-        self.setFont("Helvetica-Bold", 8)
-        self.setFillColor(hex_color(MUTED))
-        self.drawCentredString(width / 2, 0.47 * inch, "DESARROLLADO POR ING. CRISTIAN HUMBERTO OVALLE VARÓN")
-        self.setFillColor(hex_color(DARK_GREEN))
-        self.drawCentredString(width / 2, 0.31 * inch, "ALCALDÍA DE SAN CARLOS DE GUAROA")
+        self.drawImage(
+            ImageReader(str(FOOTER_PATH)),
+            0,
+            0,
+            width=width,
+            height=0.86 * inch,
+            preserveAspectRatio=False,
+            mask="auto",
+        )
 
 
 def pdf_styles():
@@ -510,7 +504,7 @@ def build_pdf(spec: ManualSpec) -> Path:
         leftMargin=0.72 * inch,
         rightMargin=0.72 * inch,
         topMargin=1.78 * inch,
-        bottomMargin=0.78 * inch,
+        bottomMargin=0.94 * inch,
     )
 
     story = [Paragraph(spec.title, styles["ManualTitle"])]
@@ -588,7 +582,10 @@ def main() -> None:
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     if not LOGO_PATH.exists():
         raise FileNotFoundError(f"No existe el logo: {LOGO_PATH}")
+    if not FOOTER_PATH.exists():
+        raise FileNotFoundError(f"No existe el pie de página: {FOOTER_PATH}")
     Image.open(LOGO_PATH).verify()
+    Image.open(FOOTER_PATH).verify()
 
     created: list[Path] = []
     for spec in MANUALS:
