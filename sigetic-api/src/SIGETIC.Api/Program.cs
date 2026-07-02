@@ -66,6 +66,7 @@ builder.Services.AddAuthorization(options =>
     [
         "Administrador",
         "Administrador TIC",
+        "Tecnico TIC",
         "Auxiliar de Sistemas",
         "Secretario Administrativo Financiero",
         "Consulta / Control Interno"
@@ -74,12 +75,14 @@ builder.Services.AddAuthorization(options =>
     [
         "Administrador",
         "Administrador TIC",
+        "Tecnico TIC",
         "Auxiliar de Sistemas"
     ];
     string[] consumibles =
     [
         "Administrador",
         "Administrador TIC",
+        "Tecnico TIC",
         "Auxiliar de Sistemas",
         "Secretario Administrativo Financiero",
         "Auxiliar Administrativo SAF"
@@ -88,6 +91,7 @@ builder.Services.AddAuthorization(options =>
     [
         "Administrador",
         "Administrador TIC",
+        "Tecnico TIC",
         "Auxiliar de Sistemas",
         "Secretario Administrativo Financiero",
         "Secretario de Despacho",
@@ -97,6 +101,7 @@ builder.Services.AddAuthorization(options =>
     [
         "Administrador",
         "Administrador TIC",
+        "Tecnico TIC",
         "Auxiliar de Sistemas",
         "Secretario Administrativo Financiero",
         "Consulta / Control Interno"
@@ -110,6 +115,7 @@ builder.Services.AddAuthorization(options =>
     [
         "Administrador",
         "Administrador TIC",
+        "Tecnico TIC",
         "Auxiliar de Sistemas",
         "Secretario Administrativo Financiero",
         "Auxiliar Administrativo SAF",

@@ -41,6 +41,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.officeSecretary,
@@ -54,6 +55,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
@@ -66,6 +68,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
@@ -78,6 +81,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
@@ -90,6 +94,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
@@ -102,6 +107,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.safAssistant,
@@ -114,6 +120,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.safAssistant,
@@ -129,6 +136,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.safAssistant,
@@ -156,6 +164,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
@@ -168,6 +177,7 @@ const menuItems: MenuItem[] = [
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,

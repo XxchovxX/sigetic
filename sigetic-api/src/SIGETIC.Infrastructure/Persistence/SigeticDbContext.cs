@@ -1091,6 +1091,7 @@ public sealed class SigeticDbContext : DbContext
         var administrativeAssistantRoleId = Guid.Parse("66666666-6666-6666-6666-666666666666");
         var financialSecretaryRoleId = Guid.Parse("77777777-7777-7777-7777-777777777777");
         var officeSecretaryRoleId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+        var technicianRoleId = Guid.Parse("99999999-9999-9999-9999-999999999910");
 
         var dependenciaPlaneacionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
         var dependenciaSistemasId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
@@ -1176,6 +1177,16 @@ public sealed class SigeticDbContext : DbContext
                 Id = officeSecretaryRoleId,
                 Nombre = "Secretario de Despacho",
                 Descripcion = "Acceso para visualizar dashboard y crear solicitudes en mesa de ayuda.",
+                EsSistema = true,
+                Activo = true,
+                FechaCreacionUtc = seedDate,
+                FechaActualizacionUtc = (DateTime?)null
+            },
+            new
+            {
+                Id = technicianRoleId,
+                Nombre = "Tecnico TIC",
+                Descripcion = "Ejecucion operativa de soportes, mantenimientos, inventario TIC, impresoras, consumibles y programaciones preventivas.",
                 EsSistema = true,
                 Activo = true,
                 FechaCreacionUtc = seedDate,

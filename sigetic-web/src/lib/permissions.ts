@@ -4,6 +4,7 @@ import type { AuthUser } from "@/lib/auth";
 export const ROLES = {
     admin: "Administrador",
     ticAdmin: "Administrador TIC",
+    ticTechnician: "Tecnico TIC",
     systemsAssistant: "Auxiliar de Sistemas",
     financialSecretary: "Secretario Administrativo Financiero",
     officeSecretary: "Secretario de Despacho",
@@ -13,10 +14,16 @@ export const ROLES = {
 } as const;
 
 const allRoles = Object.values(ROLES);
-const technicalRoles = [ROLES.admin, ROLES.ticAdmin, ROLES.systemsAssistant];
+const technicalRoles = [
+    ROLES.admin,
+    ROLES.ticAdmin,
+    ROLES.ticTechnician,
+    ROLES.systemsAssistant,
+];
 const consumableRoles = [
     ROLES.admin,
     ROLES.ticAdmin,
+    ROLES.ticTechnician,
     ROLES.systemsAssistant,
     ROLES.financialSecretary,
     ROLES.safAssistant,
@@ -49,6 +56,7 @@ export function canViewAllTickets(user: AuthUser | null) {
     return hasRole(user, [
         ROLES.admin,
         ROLES.ticAdmin,
+        ROLES.ticTechnician,
         ROLES.systemsAssistant,
         ROLES.financialSecretary,
         ROLES.safAssistant,
@@ -72,6 +80,7 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
     if (pathname === "/dashboard") {
         return hasRole(user, [
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.officeSecretary,
@@ -89,7 +98,11 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
         pathname.startsWith("/impresoras/nueva") ||
         ((pathname.startsWith("/inventario") || pathname.startsWith("/impresoras")) &&
             pathname.endsWith("/editar"))) {
-        return hasRole(user, [ROLES.ticAdmin, ROLES.systemsAssistant]);
+        return hasRole(user, [
+            ROLES.ticAdmin,
+            ROLES.ticTechnician,
+            ROLES.systemsAssistant,
+        ]);
     }
 
     if (pathname.startsWith("/inventario") ||
@@ -97,6 +110,7 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
         pathname.startsWith("/impresoras")) {
         return hasRole(user, [
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
@@ -106,6 +120,7 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
     if (pathname.startsWith("/programacion")) {
         return hasRole(user, [
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
@@ -115,6 +130,7 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
     if (pathname.startsWith("/consumibles")) {
         return hasRole(user, [
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.safAssistant,
@@ -136,6 +152,7 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
     if (pathname.startsWith("/reportes") || pathname.startsWith("/analitica")) {
         return hasRole(user, [
             ROLES.ticAdmin,
+            ROLES.ticTechnician,
             ROLES.systemsAssistant,
             ROLES.financialSecretary,
             ROLES.readOnly,
