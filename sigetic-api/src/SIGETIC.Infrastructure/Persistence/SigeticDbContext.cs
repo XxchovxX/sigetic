@@ -38,6 +38,7 @@ public sealed class SigeticDbContext : DbContext
     public DbSet<MovimientoConsumible> MovimientosConsumibles => Set<MovimientoConsumible>();
     public DbSet<TicketMesaAyuda> TicketsMesaAyuda => Set<TicketMesaAyuda>();
     public DbSet<TicketMesaAyudaHistorial> TicketsMesaAyudaHistorial => Set<TicketMesaAyudaHistorial>();
+    public DbSet<ProgramacionMantenimiento> ProgramacionesMantenimiento => Set<ProgramacionMantenimiento>();
     public DbSet<AuditoriaRegistro> AuditoriaRegistros => Set<AuditoriaRegistro>();
 
     public override Task<int> SaveChangesAsync(
@@ -59,6 +60,7 @@ public sealed class SigeticDbContext : DbContext
         ConfigureBajasEquipo(modelBuilder);
         ConfigureTicketsMesaAyuda(modelBuilder);
         ConfigureTicketsMesaAyudaHistorial(modelBuilder);
+        ConfigureProgramacionesMantenimiento(modelBuilder);
         ConfigureAuditoriaRegistros(modelBuilder);
 
         ConfigureRoles(modelBuilder);
@@ -133,6 +135,7 @@ public sealed class SigeticDbContext : DbContext
         {
             nameof(Equipo) or nameof(MantenimientoEquipo) or nameof(BajaEquipo) => "Inventario TIC",
             nameof(Impresora) or nameof(MantenimientoImpresora) or nameof(HistorialConsumibleImpresora) => "Impresoras",
+            nameof(ProgramacionMantenimiento) => "Programador de mantenimientos",
             nameof(Consumible) or nameof(MovimientoConsumible) => "Consumibles",
             nameof(TicketMesaAyuda) or nameof(TicketMesaAyudaHistorial) => "Mesa de ayuda",
             nameof(Usuario) or nameof(Rol) or nameof(Permiso) or nameof(RolPermiso) => "Configuración",
@@ -637,6 +640,100 @@ public sealed class SigeticDbContext : DbContext
 
             entity.HasIndex(e => e.TicketId);
             entity.HasIndex(e => e.FechaEventoUtc);
+        });
+    }
+
+    private static void ConfigureProgramacionesMantenimiento(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ProgramacionMantenimiento>(entity =>
+        {
+            entity.ToTable("programaciones_mantenimiento");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.TipoActivo)
+                .HasColumnName("tipo_activo")
+                .HasMaxLength(30)
+                .IsRequired();
+
+            entity.Property(e => e.EquipoId)
+                .HasColumnName("equipo_id");
+
+            entity.Property(e => e.ImpresoraId)
+                .HasColumnName("impresora_id");
+
+            entity.Property(e => e.CodigoActivo)
+                .HasColumnName("codigo_activo")
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(e => e.NombreActivo)
+                .HasColumnName("nombre_activo")
+                .HasMaxLength(220)
+                .IsRequired();
+
+            entity.Property(e => e.TipoMantenimiento)
+                .HasColumnName("tipo_mantenimiento")
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(e => e.FechaProgramada)
+                .HasColumnName("fecha_programada")
+                .IsRequired();
+
+            entity.Property(e => e.HoraProgramada)
+                .HasColumnName("hora_programada");
+
+            entity.Property(e => e.Frecuencia)
+                .HasColumnName("frecuencia")
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(e => e.Estado)
+                .HasColumnName("estado")
+                .HasMaxLength(60)
+                .IsRequired();
+
+            entity.Property(e => e.TecnicoResponsable)
+                .HasColumnName("tecnico_responsable")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.CorreoTecnico)
+                .HasColumnName("correo_tecnico")
+                .HasMaxLength(180);
+
+            entity.Property(e => e.Observaciones)
+                .HasColumnName("observaciones")
+                .HasMaxLength(1500);
+
+            entity.Property(e => e.UltimaNotificacionUtc)
+                .HasColumnName("ultima_notificacion_utc");
+
+            entity.Property(e => e.FechaCreacionUtc)
+                .HasColumnName("fecha_creacion_utc")
+                .IsRequired();
+
+            entity.Property(e => e.FechaActualizacionUtc)
+                .HasColumnName("fecha_actualizacion_utc");
+
+            entity.HasOne(e => e.Equipo)
+                .WithMany()
+                .HasForeignKey(e => e.EquipoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Impresora)
+                .WithMany()
+                .HasForeignKey(e => e.ImpresoraId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.FechaProgramada);
+            entity.HasIndex(e => e.Estado);
+            entity.HasIndex(e => e.TipoActivo);
+            entity.HasIndex(e => e.CorreoTecnico);
         });
     }
 

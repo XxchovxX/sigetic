@@ -103,6 +103,15 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
         ]);
     }
 
+    if (pathname.startsWith("/programacion")) {
+        return hasRole(user, [
+            ROLES.ticAdmin,
+            ROLES.systemsAssistant,
+            ROLES.financialSecretary,
+            ROLES.readOnly,
+        ]);
+    }
+
     if (pathname.startsWith("/consumibles")) {
         return hasRole(user, [
             ROLES.ticAdmin,

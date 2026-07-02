@@ -7,6 +7,7 @@ import { useEffect, useState, type ElementType } from "react";
 import {
     BarChart3,
     Building2,
+    CalendarClock,
     ClipboardList,
     CircleHelp,
     Headset,
@@ -74,6 +75,18 @@ const menuItems: MenuItem[] = [
         title: "Impresoras",
         href: "/impresoras",
         icon: Printer,
+        roles: [
+            ROLES.admin,
+            ROLES.ticAdmin,
+            ROLES.systemsAssistant,
+            ROLES.financialSecretary,
+            ROLES.readOnly,
+        ],
+    },
+    {
+        title: "Programacion",
+        href: "/programacion",
+        icon: CalendarClock,
         roles: [
             ROLES.admin,
             ROLES.ticAdmin,

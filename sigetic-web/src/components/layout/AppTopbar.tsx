@@ -40,6 +40,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
         title: "Impresoras",
         subtitle: "Gestión de impresoras institucionales",
     },
+    "/programacion": {
+        title: "Programacion",
+        subtitle: "Mantenimientos preventivos",
+    },
     "/consumibles": {
         title: "Consumibles",
         subtitle: "Control de tóner, tintas e insumos",
@@ -102,6 +106,12 @@ const searchableItems = [
         keywords: "impresora tinta tóner páginas",
     },
     {
+        title: "Programacion",
+        description: "Agenda preventiva de equipos e impresoras",
+        href: "/programacion",
+        keywords: "mantenimiento preventivo calendario programar recordatorio",
+    },
+    {
         title: "Consumibles",
         description: "Stock, entradas, salidas y costos",
         href: "/consumibles",
@@ -155,6 +165,11 @@ const notificationItems = [
         title: "Stock de consumibles",
         description: "Verificar existencias, entradas y salidas.",
         href: "/consumibles",
+    },
+    {
+        title: "Mantenimientos preventivos",
+        description: "Revisar agenda y enviar recordatorios al tecnico.",
+        href: "/programacion",
     },
     {
         title: "Analítica institucional",

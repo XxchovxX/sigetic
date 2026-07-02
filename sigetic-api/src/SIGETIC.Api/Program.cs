@@ -164,6 +164,7 @@ app.MapGet("/", () =>
             "/api/impresoras",
             "/api/consumibles",
             "/api/tickets",
+            "/api/programacion-mantenimientos",
             "/api/analitica",
             "/api/auditoria",
             "/api/dashboard/resumen"
@@ -188,6 +189,7 @@ app.MapAuthEndpoints();
 app.MapImpresoraEndpoints();
 app.MapConsumibleEndpoints();
 app.MapTicketEndpoints();
+app.MapProgramacionMantenimientoEndpoints();
 app.MapAnaliticaEndpoints();
 app.MapDashboardEndpoints();
 app.MapAuditoriaEndpoints();
