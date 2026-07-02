@@ -38,6 +38,18 @@ const roleManuals = [
         ],
     },
     {
+        role: "Tecnico TIC",
+        title: "Tecnico TIC",
+        scope: "Ejecucion operativa de soporte, mantenimientos, inventario, impresoras, consumibles y programacion preventiva.",
+        tasks: [
+            "Atender tickets y registrar avances, solucion y evidencias.",
+            "Registrar equipos, impresoras y hojas de vida cuando sea autorizado.",
+            "Ejecutar mantenimientos preventivos o correctivos con firma interna.",
+            "Actualizar consumibles, stock y movimientos tecnicos.",
+            "Consultar programacion, reportes y analitica operativa sin administrar usuarios.",
+        ],
+    },
+    {
         role: "Auxiliar de Sistemas",
         title: "Auxiliar de sistemas",
         scope: "Ejecución operativa de soporte, mantenimientos y consumibles.",
@@ -121,6 +133,11 @@ const faqs = [
         title: "¿Quién puede revisar la auditoría?",
         answer:
             "Por seguridad, solo Administrador y Administrador TIC pueden consultar la auditoría global del sistema.",
+    },
+    {
+        title: "¿Como creo un usuario para el tecnico o para apoyo TIC?",
+        answer:
+            "Debe hacerlo un Administrador desde Usuarios o Configuracion. Crea un acceso nuevo, asigna el rol Tecnico TIC y usa un correo propio de la persona para que la auditoria registre quien hizo cada accion.",
     },
     {
         title: "¿Qué son las hojas de vida?",

@@ -158,6 +158,12 @@ const menuItems: MenuItem[] = [
         roles: [ROLES.admin],
     },
     {
+        title: "Usuarios",
+        href: "/configuracion/usuarios",
+        icon: UsersRound,
+        roles: [ROLES.admin],
+    },
+    {
         title: "Reportes",
         href: "/reportes",
         icon: BarChart3,
@@ -254,7 +260,9 @@ export function AppSidebar() {
                     const Icon = item.icon;
                     const isActive =
                         pathname === item.href ||
-                        (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                        (item.href !== "/dashboard" &&
+                            item.href !== "/configuracion" &&
+                            pathname.startsWith(item.href));
 
                     return (
                         <Link
