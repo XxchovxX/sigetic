@@ -46,9 +46,29 @@ public sealed class TicketService : ITicketService
 
     public async Task<TicketResponse> CreateAsync(
         CrearTicketRequest request,
+        Guid usuarioId,
         string usuario,
         CancellationToken cancellationToken)
     {
+        var usuarioSolicitante = await _dbContext.Usuarios
+            .AsNoTracking()
+            .Include(e => e.Rol)
+            .Include(e => e.Dependencia)
+            .FirstOrDefaultAsync(e => e.Id == usuarioId, cancellationToken);
+
+        if (usuarioSolicitante is not null && !CanCreateForOthers(usuarioSolicitante.Rol?.Nombre))
+        {
+            request = request with
+            {
+                Solicitante = usuarioSolicitante.NombreCompleto,
+                Dependencia = usuarioSolicitante.Dependencia?.Nombre ?? request.Dependencia,
+                Estado = "Abierto",
+                ResponsableAsignado = null,
+                FechaCompromiso = null,
+                Solucion = null
+            };
+        }
+
         ValidateRequest(
             request.FechaSolicitud,
             request.Solicitante,
@@ -83,6 +103,8 @@ public sealed class TicketService : ITicketService
             fechaCompromiso,
             request.Solucion);
 
+        ticket.AsociarUsuarioSolicitante(usuarioId);
+
         _dbContext.TicketsMesaAyuda.Add(ticket);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -105,6 +127,18 @@ public sealed class TicketService : ITicketService
             cancellationToken);
 
         return response;
+    }
+
+    private static bool CanCreateForOthers(string? role)
+    {
+        return role is
+            "Administrador" or
+            "Administrador TIC" or
+            "Tecnico TIC" or
+            "Auxiliar de Sistemas" or
+            "Secretario Administrativo Financiero" or
+            "Auxiliar Administrativo SAF" or
+            "Consulta / Control Interno";
     }
 
     public async Task<TicketResponse> UpdateEstadoAsync(
@@ -229,6 +263,7 @@ public sealed class TicketService : ITicketService
     {
         return new TicketResponse(
             ticket.Id,
+            ticket.UsuarioSolicitanteId,
             ticket.Codigo,
             ticket.FechaSolicitud,
             ticket.Solicitante,

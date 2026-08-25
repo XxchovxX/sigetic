@@ -37,7 +37,12 @@ public sealed record UsuarioResponse(
     string Rol,
     bool Activo,
     DateTime FechaCreacionUtc,
-    DateTime? UltimoAccesoUtc
+    DateTime? UltimoAccesoUtc,
+    bool EsCuentaGoogle,
+    Guid? DependenciaId,
+    string? Dependencia,
+    string? Cargo,
+    string? TipoVinculacion
 );
 
 public sealed record CrearUsuarioRequest(

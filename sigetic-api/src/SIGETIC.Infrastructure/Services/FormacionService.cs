@@ -14,6 +14,32 @@ public sealed class FormacionService : IFormacionService
         _dbContext = dbContext;
     }
 
+    public async Task<DestinatariosFormacionResponse> GetDestinatariosAsync(
+        CancellationToken cancellationToken)
+    {
+        var dependencias = await _dbContext.Dependencias
+            .AsNoTracking()
+            .Where(e => e.Activa)
+            .OrderBy(e => e.Nombre)
+            .Select(e => new DestinatarioDependenciaFormacionResponse(e.Id, e.Nombre))
+            .ToListAsync(cancellationToken);
+
+        var usuarios = await _dbContext.Usuarios
+            .AsNoTracking()
+            .Include(e => e.Dependencia)
+            .Where(e => e.Activo)
+            .OrderBy(e => e.NombreCompleto)
+            .Select(e => new DestinatarioUsuarioFormacionResponse(
+                e.Id,
+                e.NombreCompleto,
+                e.Correo,
+                e.DependenciaId,
+                e.Dependencia != null ? e.Dependencia.Nombre : null))
+            .ToListAsync(cancellationToken);
+
+        return new DestinatariosFormacionResponse(dependencias, usuarios);
+    }
+
     public async Task<IReadOnlyList<CursoFormacionResponse>> GetCursosAsync(
         Guid usuarioId,
         bool incluirInactivos,
@@ -24,6 +50,17 @@ public sealed class FormacionService : IFormacionService
         if (!incluirInactivos)
         {
             query = query.Where(e => e.Activo);
+
+            var dependenciaId = await _dbContext.Usuarios
+                .Where(e => e.Id == usuarioId)
+                .Select(e => e.DependenciaId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            query = query.Where(e =>
+                (!e.DependenciasDestino.Any() && !e.UsuariosDestino.Any()) ||
+                e.UsuariosDestino.Any(destino => destino.UsuarioId == usuarioId) ||
+                (dependenciaId.HasValue && e.DependenciasDestino.Any(
+                    destino => destino.DependenciaId == dependenciaId.Value)));
         }
 
         var cursos = await query
@@ -55,6 +92,17 @@ public sealed class FormacionService : IFormacionService
         if (!incluirInactivos)
         {
             query = query.Where(e => e.Activo);
+
+            var dependenciaId = await _dbContext.Usuarios
+                .Where(e => e.Id == usuarioId)
+                .Select(e => e.DependenciaId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            query = query.Where(e =>
+                (!e.DependenciasDestino.Any() && !e.UsuariosDestino.Any()) ||
+                e.UsuariosDestino.Any(destino => destino.UsuarioId == usuarioId) ||
+                (dependenciaId.HasValue && e.DependenciasDestino.Any(
+                    destino => destino.DependenciaId == dependenciaId.Value)));
         }
 
         var curso = await query.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
@@ -81,6 +129,10 @@ public sealed class FormacionService : IFormacionService
         CancellationToken cancellationToken)
     {
         ValidateCurso(request.Materiales, request.Preguntas);
+        await ValidateDestinatariosAsync(
+            request.DependenciaIds,
+            request.UsuarioIds,
+            cancellationToken);
 
         var curso = new FormacionCurso(
             request.Titulo,
@@ -93,6 +145,7 @@ public sealed class FormacionService : IFormacionService
         curso.ReemplazarContenido(
             BuildMateriales(curso.Id, request.Materiales),
             BuildPreguntas(curso.Id, request.Preguntas));
+        curso.ReemplazarDestinatarios(request.DependenciaIds, request.UsuarioIds);
 
         _dbContext.FormacionCursos.Add(curso);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -111,11 +164,17 @@ public sealed class FormacionService : IFormacionService
         CancellationToken cancellationToken)
     {
         ValidateCurso(request.Materiales, request.Preguntas);
+        await ValidateDestinatariosAsync(
+            request.DependenciaIds,
+            request.UsuarioIds,
+            cancellationToken);
 
         var curso = await _dbContext.FormacionCursos
             .Include(e => e.Materiales)
             .Include(e => e.Preguntas)
                 .ThenInclude(e => e.Opciones)
+            .Include(e => e.DependenciasDestino)
+            .Include(e => e.UsuariosDestino)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         if (curso is null)
@@ -135,6 +194,7 @@ public sealed class FormacionService : IFormacionService
         curso.ReemplazarContenido(
             BuildMateriales(curso.Id, request.Materiales),
             BuildPreguntas(curso.Id, request.Preguntas));
+        curso.ReemplazarDestinatarios(request.DependenciaIds, request.UsuarioIds);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -153,7 +213,17 @@ public sealed class FormacionService : IFormacionService
         string participanteCorreo,
         CancellationToken cancellationToken)
     {
+        var dependenciaId = await _dbContext.Usuarios
+            .Where(e => e.Id == usuarioId)
+            .Select(e => e.DependenciaId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var curso = await BaseCursoQuery()
+            .Where(e =>
+                (!e.DependenciasDestino.Any() && !e.UsuariosDestino.Any()) ||
+                e.UsuariosDestino.Any(destino => destino.UsuarioId == usuarioId) ||
+                (dependenciaId.HasValue && e.DependenciasDestino.Any(
+                    destino => destino.DependenciaId == dependenciaId.Value)))
             .FirstOrDefaultAsync(e => e.Id == cursoId && e.Activo, cancellationToken);
 
         if (curso is null)
@@ -304,7 +374,32 @@ public sealed class FormacionService : IFormacionService
             .AsNoTracking()
             .Include(e => e.Materiales)
             .Include(e => e.Preguntas)
-                .ThenInclude(e => e.Opciones);
+                .ThenInclude(e => e.Opciones)
+            .Include(e => e.DependenciasDestino)
+                .ThenInclude(e => e.Dependencia)
+            .Include(e => e.UsuariosDestino)
+                .ThenInclude(e => e.Usuario)
+                    .ThenInclude(e => e!.Dependencia);
+    }
+
+    private async Task ValidateDestinatariosAsync(
+        IReadOnlyList<Guid> dependenciaIds,
+        IReadOnlyList<Guid> usuarioIds,
+        CancellationToken cancellationToken)
+    {
+        var dependenciasSolicitadas = dependenciaIds.Distinct().ToList();
+        var usuariosSolicitados = usuarioIds.Distinct().ToList();
+
+        var dependenciasValidas = await _dbContext.Dependencias
+            .CountAsync(e => dependenciasSolicitadas.Contains(e.Id) && e.Activa, cancellationToken);
+        var usuariosValidos = await _dbContext.Usuarios
+            .CountAsync(e => usuariosSolicitados.Contains(e.Id) && e.Activo, cancellationToken);
+
+        if (dependenciasValidas != dependenciasSolicitadas.Count)
+            throw new ArgumentException("Una de las dependencias seleccionadas no existe o está inactiva.");
+
+        if (usuariosValidos != usuariosSolicitados.Count)
+            throw new ArgumentException("Uno de los usuarios seleccionados no existe o está inactivo.");
     }
 
     private async Task<Dictionary<Guid, IntentoFormacionResumenResponse>> GetUltimosIntentosAsync(
@@ -421,6 +516,23 @@ public sealed class FormacionService : IFormacionService
             curso.Activo,
             curso.FechaCreacionUtc,
             curso.FechaActualizacionUtc,
+            curso.DependenciasDestino
+                .Where(e => e.Dependencia != null)
+                .OrderBy(e => e.Dependencia!.Nombre)
+                .Select(e => new DestinatarioDependenciaFormacionResponse(
+                    e.DependenciaId,
+                    e.Dependencia!.Nombre))
+                .ToList(),
+            curso.UsuariosDestino
+                .Where(e => e.Usuario != null)
+                .OrderBy(e => e.Usuario!.NombreCompleto)
+                .Select(e => new DestinatarioUsuarioFormacionResponse(
+                    e.UsuarioId,
+                    e.Usuario!.NombreCompleto,
+                    e.Usuario.Correo,
+                    e.Usuario.DependenciaId,
+                    e.Usuario.Dependencia?.Nombre))
+                .ToList(),
             curso.Materiales
                 .OrderBy(e => e.Orden)
                 .Select(e => new MaterialFormacionResponse(

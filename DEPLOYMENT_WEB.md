@@ -134,6 +134,8 @@ JWT_ISSUER=SIGETIC.Api
 JWT_AUDIENCE=SIGETIC.Web
 JWT_SECRET_KEY=CAMBIAR_LLAVE_JWT_MINIMO_64_CARACTERES_ALEATORIOS
 JWT_EXPIRATION_MINUTES=480
+GOOGLE_AUTH_ENABLED=false
+GOOGLE_AUTH_CLIENT_ID=
 ```
 
 Generar secretos:
@@ -143,6 +145,19 @@ openssl rand -base64 48
 ```
 
 Usar uno para `POSTGRES_PASSWORD` y otro para `JWT_SECRET_KEY`.
+
+Para habilitar el registro de funcionarios y contratistas con Google, crear un
+cliente OAuth 2.0 de tipo **Aplicación web** en Google Cloud, agregar
+`https://DOMINIO` como origen JavaScript autorizado y configurar:
+
+```env
+GOOGLE_AUTH_ENABLED=true
+GOOGLE_AUTH_CLIENT_ID=CLIENT_ID_ENTREGADO_POR_GOOGLE
+```
+
+El secreto del cliente no se necesita para este flujo. SIGETIC valida el token
+de identidad en la API y asigna a las cuentas nuevas únicamente el rol
+`Funcionario`.
 
 ## 7. Levantar producción
 

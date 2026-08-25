@@ -48,6 +48,18 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
                 setUser(currentUser);
 
+                if (currentUser.esCuentaGoogle && !currentUser.perfilCompleto) {
+                    if (pathname !== "/completar-perfil") {
+                        router.replace("/completar-perfil");
+                    }
+                    return;
+                }
+
+                if (pathname === "/completar-perfil") {
+                    router.replace(getDefaultPathForRole(currentUser.rol));
+                    return;
+                }
+
                 if (!canAccessPath(currentUser, pathname)) {
                     router.replace(getDefaultPathForRole(currentUser.rol));
                     return;
@@ -82,6 +94,10 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     }
 
     if (!user) return null;
+
+    if (user.esCuentaGoogle && !user.perfilCompleto && pathname !== "/completar-perfil") {
+        return null;
+    }
 
     return children;
 }

@@ -5,6 +5,8 @@ public sealed class FormacionCurso
     private readonly List<FormacionMaterial> _materiales = new();
     private readonly List<FormacionPregunta> _preguntas = new();
     private readonly List<FormacionIntento> _intentos = new();
+    private readonly List<FormacionCursoDependencia> _dependenciasDestino = new();
+    private readonly List<FormacionCursoUsuario> _usuariosDestino = new();
 
     private FormacionCurso()
     {
@@ -52,6 +54,8 @@ public sealed class FormacionCurso
     public IReadOnlyCollection<FormacionMaterial> Materiales => _materiales;
     public IReadOnlyCollection<FormacionPregunta> Preguntas => _preguntas;
     public IReadOnlyCollection<FormacionIntento> Intentos => _intentos;
+    public IReadOnlyCollection<FormacionCursoDependencia> DependenciasDestino => _dependenciasDestino;
+    public IReadOnlyCollection<FormacionCursoUsuario> UsuariosDestino => _usuariosDestino;
 
     public void Actualizar(
         string titulo,
@@ -90,6 +94,21 @@ public sealed class FormacionCurso
 
         _preguntas.Clear();
         _preguntas.AddRange(preguntas);
+
+        FechaActualizacionUtc = DateTime.UtcNow;
+    }
+
+    public void ReemplazarDestinatarios(
+        IEnumerable<Guid> dependenciaIds,
+        IEnumerable<Guid> usuarioIds)
+    {
+        _dependenciasDestino.Clear();
+        _dependenciasDestino.AddRange(
+            dependenciaIds.Distinct().Select(id => new FormacionCursoDependencia(Id, id)));
+
+        _usuariosDestino.Clear();
+        _usuariosDestino.AddRange(
+            usuarioIds.Distinct().Select(id => new FormacionCursoUsuario(Id, id)));
 
         FechaActualizacionUtc = DateTime.UtcNow;
     }

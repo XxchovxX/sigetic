@@ -381,12 +381,18 @@ export default function UsuariosPage() {
                                     <tr key={usuario.id}>
                                         <td className="px-5 py-4 align-middle font-black leading-6 text-[#14233b]">
                                             {usuario.nombreCompleto}
+                                            {usuario.esCuentaGoogle ? (
+                                                <span className="mt-1 block text-xs font-bold text-[#006b2e]">Cuenta Google</span>
+                                            ) : null}
                                         </td>
                                         <td className="px-5 py-4 align-middle text-slate-600">
                                             {usuario.correo}
                                         </td>
                                         <td className="px-5 py-4 align-middle text-slate-600">
                                             {usuario.rol}
+                                            {usuario.dependencia ? (
+                                                <span className="mt-1 block text-xs text-slate-500">{usuario.dependencia}{usuario.cargo ? ` · ${usuario.cargo}` : ""}</span>
+                                            ) : null}
                                         </td>
                                         <td className="px-5 py-4 align-middle">
                                             <span

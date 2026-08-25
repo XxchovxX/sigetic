@@ -8,6 +8,7 @@ public interface ITicketService
 
     Task<TicketResponse> CreateAsync(
         CrearTicketRequest request,
+        Guid usuarioId,
         string usuario,
         CancellationToken cancellationToken);
 

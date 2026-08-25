@@ -37,6 +37,36 @@ public static class AuthEndpoints
             }
         });
 
+        group.MapGet("/google/config", (IAuthService authService) =>
+            Results.Ok(authService.GetGoogleConfig()));
+
+        group.MapPost("/google", async (
+            GoogleLoginRequest request,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                return Results.Ok(await authService.LoginWithGoogleAsync(
+                    request,
+                    cancellationToken));
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { message = exception.Message });
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Results.Conflict(new { message = exception.Message });
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                return Results.Json(
+                    new { message = exception.Message },
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+        });
+
         group.MapGet("/me", async (
             ClaimsPrincipal user,
             IAuthService authService,
@@ -56,6 +86,43 @@ public static class AuthEndpoints
                     cancellationToken);
 
                 return Results.Ok(currentUser);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+        })
+        .RequireAuthorization();
+
+        group.MapGet("/perfil/dependencias", async (
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await authService.GetDependenciasPerfilAsync(cancellationToken)))
+        .RequireAuthorization();
+
+        group.MapPut("/perfil", async (
+            CompletarPerfilRequest request,
+            ClaimsPrincipal user,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            if (!Guid.TryParse(user.FindFirstValue("usuario_id"), out Guid usuarioId))
+                return Results.Unauthorized();
+
+            try
+            {
+                return Results.Ok(await authService.CompletarPerfilAsync(
+                    usuarioId,
+                    request,
+                    cancellationToken));
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { message = exception.Message });
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Results.Conflict(new { message = exception.Message });
             }
             catch (UnauthorizedAccessException)
             {

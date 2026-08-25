@@ -7,6 +7,8 @@ public sealed record CrearCursoFormacionRequest(
     string DirigidoA,
     int DuracionMinutos,
     int PuntajeMinimo,
+    IReadOnlyList<Guid> DependenciaIds,
+    IReadOnlyList<Guid> UsuarioIds,
     IReadOnlyList<CrearMaterialFormacionRequest> Materiales,
     IReadOnlyList<CrearPreguntaFormacionRequest> Preguntas
 );
@@ -19,6 +21,8 @@ public sealed record ActualizarCursoFormacionRequest(
     int DuracionMinutos,
     int PuntajeMinimo,
     bool Activo,
+    IReadOnlyList<Guid> DependenciaIds,
+    IReadOnlyList<Guid> UsuarioIds,
     IReadOnlyList<CrearMaterialFormacionRequest> Materiales,
     IReadOnlyList<CrearPreguntaFormacionRequest> Preguntas
 );
@@ -60,9 +64,26 @@ public sealed record CursoFormacionResponse(
     bool Activo,
     DateTime FechaCreacionUtc,
     DateTime? FechaActualizacionUtc,
+    IReadOnlyList<DestinatarioDependenciaFormacionResponse> DependenciasDestino,
+    IReadOnlyList<DestinatarioUsuarioFormacionResponse> UsuariosDestino,
     IReadOnlyList<MaterialFormacionResponse> Materiales,
     IReadOnlyList<PreguntaFormacionResponse> Preguntas,
     IntentoFormacionResumenResponse? UltimoIntento
+);
+
+public sealed record DestinatarioDependenciaFormacionResponse(Guid Id, string Nombre);
+
+public sealed record DestinatarioUsuarioFormacionResponse(
+    Guid Id,
+    string NombreCompleto,
+    string Correo,
+    Guid? DependenciaId,
+    string? Dependencia
+);
+
+public sealed record DestinatariosFormacionResponse(
+    IReadOnlyList<DestinatarioDependenciaFormacionResponse> Dependencias,
+    IReadOnlyList<DestinatarioUsuarioFormacionResponse> Usuarios
 );
 
 public sealed record MaterialFormacionResponse(

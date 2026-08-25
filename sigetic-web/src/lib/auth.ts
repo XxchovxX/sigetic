@@ -11,6 +11,12 @@ export type AuthUser = {
     rolId: string;
     rol: string;
     permisos: string[];
+    esCuentaGoogle: boolean;
+    perfilCompleto: boolean;
+    dependenciaId?: string | null;
+    dependencia?: string | null;
+    cargo?: string | null;
+    tipoVinculacion?: string | null;
 };
 
 export type LoginResponse = {
@@ -22,6 +28,17 @@ export type LoginResponse = {
 export type LoginPayload = {
     correo: string;
     password: string;
+};
+
+export type GoogleAuthConfig = {
+    enabled: boolean;
+    clientId?: string | null;
+};
+
+export type PerfilDependencia = {
+    id: string;
+    nombre: string;
+    codigo: string;
 };
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -76,6 +93,46 @@ export function saveSession(response: LoginResponse) {
     localStorage.setItem(TOKEN_KEY, response.token);
     localStorage.setItem(USER_KEY, JSON.stringify(response.usuario));
     window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+}
+
+export async function getGoogleAuthConfig(): Promise<GoogleAuthConfig> {
+    const response = await fetch(`${getApiUrl()}/api/auth/google/config`, {
+        cache: "no-store",
+    });
+    return handleResponse<GoogleAuthConfig>(response);
+}
+
+export async function loginWithGoogle(credential: string): Promise<LoginResponse> {
+    const response = await fetch(`${getApiUrl()}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+    });
+    return handleResponse<LoginResponse>(response);
+}
+
+export async function getPerfilDependencias(): Promise<PerfilDependencia[]> {
+    const response = await fetch(`${getApiUrl()}/api/auth/perfil/dependencias`, {
+        headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+        cache: "no-store",
+    });
+    return handleResponse<PerfilDependencia[]>(response);
+}
+
+export async function completarPerfil(payload: {
+    dependenciaId: string;
+    cargo: string;
+    tipoVinculacion: string;
+}): Promise<LoginResponse> {
+    const response = await fetch(`${getApiUrl()}/api/auth/perfil`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken() ?? ""}`,
+        },
+        body: JSON.stringify(payload),
+    });
+    return handleResponse<LoginResponse>(response);
 }
 
 export function getToken() {

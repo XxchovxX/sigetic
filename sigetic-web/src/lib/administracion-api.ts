@@ -19,6 +19,11 @@ export type Usuario = {
     activo: boolean;
     fechaCreacionUtc: string;
     ultimoAccesoUtc?: string | null;
+    esCuentaGoogle: boolean;
+    dependenciaId?: string | null;
+    dependencia?: string | null;
+    cargo?: string | null;
+    tipoVinculacion?: string | null;
 };
 
 export type Dependencia = {

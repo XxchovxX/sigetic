@@ -116,6 +116,7 @@ public sealed class AdministracionService : IAdministracionService
         return await _dbContext.Usuarios
             .AsNoTracking()
             .Include(e => e.Rol)
+            .Include(e => e.Dependencia)
             .OrderBy(e => e.NombreCompleto)
             .Select(e => new UsuarioResponse(
                 e.Id,
@@ -125,7 +126,12 @@ public sealed class AdministracionService : IAdministracionService
                 e.Rol != null ? e.Rol.Nombre : "Sin rol",
                 e.Activo,
                 e.FechaCreacionUtc,
-                e.UltimoAccesoUtc))
+                e.UltimoAccesoUtc,
+                e.EsCuentaGoogle,
+                e.DependenciaId,
+                e.Dependencia != null ? e.Dependencia.Nombre : null,
+                e.Cargo,
+                e.TipoVinculacion))
             .ToListAsync(cancellationToken);
     }
 
@@ -178,7 +184,12 @@ public sealed class AdministracionService : IAdministracionService
             rol.Nombre,
             usuario.Activo,
             usuario.FechaCreacionUtc,
-            usuario.UltimoAccesoUtc);
+            usuario.UltimoAccesoUtc,
+            usuario.EsCuentaGoogle,
+            usuario.DependenciaId,
+            usuario.Dependencia?.Nombre,
+            usuario.Cargo,
+            usuario.TipoVinculacion);
     }
 
     public async Task<UsuarioResponse> UpdateUsuarioAsync(
@@ -228,7 +239,12 @@ public sealed class AdministracionService : IAdministracionService
             rol.Nombre,
             usuario.Activo,
             usuario.FechaCreacionUtc,
-            usuario.UltimoAccesoUtc);
+            usuario.UltimoAccesoUtc,
+            usuario.EsCuentaGoogle,
+            usuario.DependenciaId,
+            usuario.Dependencia?.Nombre,
+            usuario.Cargo,
+            usuario.TipoVinculacion);
     }
 
     public async Task CambiarPasswordUsuarioAsync(

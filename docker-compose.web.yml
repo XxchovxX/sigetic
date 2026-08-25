@@ -38,6 +38,8 @@ services:
       Email__FromName: ${EMAIL_FROM_NAME:-SIGETIC}
       Email__EnableSsl: ${EMAIL_ENABLE_SSL:-true}
       Email__TicketRecipients: ${EMAIL_TICKET_RECIPIENTS:-}
+      GoogleAuth__Enabled: ${GOOGLE_AUTH_ENABLED:-false}
+      GoogleAuth__ClientId: ${GOOGLE_AUTH_CLIENT_ID:-}
     depends_on:
       db:
         condition: service_healthy

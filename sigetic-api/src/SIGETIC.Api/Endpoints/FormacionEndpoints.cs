@@ -13,6 +13,12 @@ public static class FormacionEndpoints
             .WithTags("Formacion")
             .RequireAuthorization("Formacion");
 
+        group.MapGet("/destinatarios", async (
+            IFormacionService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetDestinatariosAsync(cancellationToken)))
+        .RequireAuthorization("FormacionGestion");
+
         group.MapGet("/cursos", async (
             ClaimsPrincipal user,
             IFormacionService service,

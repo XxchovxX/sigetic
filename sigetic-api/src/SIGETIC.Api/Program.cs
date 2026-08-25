@@ -149,9 +149,13 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Consumibles", policy => policy.RequireRole(consumibles));
     options.AddPolicy("Dashboard", policy => policy.RequireRole(dashboard));
     options.AddPolicy("ReportesAnalitica", policy => policy.RequireRole(reports));
-    options.AddPolicy("MesaAyuda", policy => policy.RequireRole(tickets));
+    options.AddPolicy("MesaAyuda", policy => policy
+        .RequireRole(tickets)
+        .RequireClaim("perfil_completo", "true"));
     options.AddPolicy("Auditoria", policy => policy.RequireRole(audit));
-    options.AddPolicy("Formacion", policy => policy.RequireRole(formacion));
+    options.AddPolicy("Formacion", policy => policy
+        .RequireRole(formacion)
+        .RequireClaim("perfil_completo", "true"));
     options.AddPolicy("FormacionGestion", policy => policy.RequireRole(formacionGestion));
 });
 

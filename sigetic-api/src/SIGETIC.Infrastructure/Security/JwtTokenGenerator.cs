@@ -36,6 +36,7 @@ public sealed class JwtTokenGenerator
             new(JwtRegisteredClaimNames.Name, user.NombreCompleto),
             new("usuario_id", user.Id.ToString()),
             new("rol_id", user.RolId.ToString()),
+            new("perfil_completo", user.PerfilCompleto ? "true" : "false"),
             new(ClaimTypes.Role, user.Rol)
         };
 

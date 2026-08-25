@@ -3,6 +3,7 @@ import { getApiUrl } from "@/lib/api-url";
 
 export type TicketMesaAyuda = {
     id: string;
+    usuarioSolicitanteId?: string | null;
     codigo: string;
     fechaSolicitud: string;
     solicitante: string;

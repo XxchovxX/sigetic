@@ -36,7 +36,7 @@ export default function NuevoTicketPage() {
     const [form, setForm] = useState<CrearTicketPayload>({
         fechaSolicitud: today(),
         solicitante: currentUser?.nombreCompleto ?? "",
-        dependencia: "",
+        dependencia: currentUser?.dependencia ?? "",
         categoria: "Soporte técnico",
         prioridad: "Media",
         estado: "Abierto",
@@ -70,13 +70,14 @@ export default function NuevoTicketPage() {
             setForm((current) => ({
                 ...current,
                 solicitante: currentUser.nombreCompleto,
+                dependencia: currentUser.dependencia ?? current.dependencia,
                 estado: "Abierto",
                 responsableAsignado: "",
                 fechaCompromiso: "",
                 solucion: "",
             }));
         }
-    }, [canManageTicketFields, currentUser?.nombreCompleto]);
+    }, [canManageTicketFields, currentUser?.nombreCompleto, currentUser?.dependencia]);
 
     function updateField<K extends keyof CrearTicketPayload>(
         key: K,
@@ -178,6 +179,7 @@ export default function NuevoTicketPage() {
                                     updateField("dependencia", event.target.value)
                                 }
                                 className="input"
+                                disabled={!canManageTicketFields}
                             >
                                 {dependencias.map((dependencia) => (
                                     <option key={dependencia.id} value={dependencia.nombre}>
@@ -192,7 +194,8 @@ export default function NuevoTicketPage() {
                                     updateField("dependencia", event.target.value)
                                 }
                                 placeholder="Dependencia"
-                                className="input"
+                                readOnly={!canManageTicketFields}
+                                className={`input ${!canManageTicketFields ? "bg-slate-50" : ""}`}
                             />
                         )}
                     </Field>

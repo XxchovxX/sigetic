@@ -2,6 +2,9 @@ namespace SIGETIC.Application.Formacion;
 
 public interface IFormacionService
 {
+    Task<DestinatariosFormacionResponse> GetDestinatariosAsync(
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<CursoFormacionResponse>> GetCursosAsync(
         Guid usuarioId,
         bool incluirInactivos,

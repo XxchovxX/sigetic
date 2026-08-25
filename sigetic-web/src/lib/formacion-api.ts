@@ -34,9 +34,26 @@ export type FormacionCurso = {
     activo: boolean;
     fechaCreacionUtc: string;
     fechaActualizacionUtc?: string | null;
+    dependenciasDestino: FormacionDependenciaDestino[];
+    usuariosDestino: FormacionUsuarioDestino[];
     materiales: FormacionMaterial[];
     preguntas: FormacionPregunta[];
     ultimoIntento?: FormacionIntento | null;
+};
+
+export type FormacionDependenciaDestino = { id: string; nombre: string };
+
+export type FormacionUsuarioDestino = {
+    id: string;
+    nombreCompleto: string;
+    correo: string;
+    dependenciaId?: string | null;
+    dependencia?: string | null;
+};
+
+export type FormacionDestinatarios = {
+    dependencias: FormacionDependenciaDestino[];
+    usuarios: FormacionUsuarioDestino[];
 };
 
 export type FormacionIntento = {
@@ -76,6 +93,8 @@ export type CrearCursoFormacionPayload = {
     duracionMinutos: number;
     puntajeMinimo: number;
     activo: boolean;
+    dependenciaIds: string[];
+    usuarioIds: string[];
     materiales: Array<{
         titulo: string;
         tipo: string;
@@ -165,6 +184,10 @@ async function apiFetch<T>(
 
 export async function getCursosFormacion(): Promise<FormacionCurso[]> {
     return apiFetch<FormacionCurso[]>("/api/formacion/cursos");
+}
+
+export async function getDestinatariosFormacion(): Promise<FormacionDestinatarios> {
+    return apiFetch<FormacionDestinatarios>("/api/formacion/destinatarios");
 }
 
 export async function getCursoFormacion(id: string): Promise<FormacionCurso> {

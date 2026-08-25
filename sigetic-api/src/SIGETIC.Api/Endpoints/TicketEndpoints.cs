@@ -63,6 +63,7 @@ public static class TicketEndpoints
             {
                 var ticket = await ticketService.CreateAsync(
                     request,
+                    GetUserId(httpContext.User),
                     GetActor(httpContext.User),
                     cancellationToken);
 
@@ -179,6 +180,13 @@ public static class TicketEndpoints
             "Sistema";
     }
 
+    private static Guid GetUserId(ClaimsPrincipal user)
+    {
+        return Guid.TryParse(user.FindFirstValue("usuario_id"), out Guid id)
+            ? id
+            : throw new UnauthorizedAccessException("No se pudo identificar el usuario autenticado.");
+    }
+
     private static bool CanViewAllTickets(ClaimsPrincipal user)
     {
         string? role = user.FindFirstValue(ClaimTypes.Role);
@@ -186,6 +194,7 @@ public static class TicketEndpoints
         return role is
             "Administrador" or
             "Administrador TIC" or
+            "Tecnico TIC" or
             "Auxiliar de Sistemas" or
             "Secretario Administrativo Financiero" or
             "Auxiliar Administrativo SAF" or
@@ -196,6 +205,12 @@ public static class TicketEndpoints
         TicketResponse ticket,
         ClaimsPrincipal user)
     {
+        if (Guid.TryParse(user.FindFirstValue("usuario_id"), out Guid usuarioId) &&
+            ticket.UsuarioSolicitanteId == usuarioId)
+        {
+            return true;
+        }
+
         string? name = user.FindFirstValue(ClaimTypes.Name);
         string? email = user.FindFirstValue(ClaimTypes.Email);
 

@@ -45,6 +45,8 @@ public sealed class SigeticDbContext : DbContext
     public DbSet<FormacionOpcion> FormacionOpciones => Set<FormacionOpcion>();
     public DbSet<FormacionIntento> FormacionIntentos => Set<FormacionIntento>();
     public DbSet<FormacionRespuesta> FormacionRespuestas => Set<FormacionRespuesta>();
+    public DbSet<FormacionCursoDependencia> FormacionCursosDependencias => Set<FormacionCursoDependencia>();
+    public DbSet<FormacionCursoUsuario> FormacionCursosUsuarios => Set<FormacionCursoUsuario>();
     public DbSet<AuditoriaRegistro> AuditoriaRegistros => Set<AuditoriaRegistro>();
 
     public override Task<int> SaveChangesAsync(
@@ -146,7 +148,8 @@ public sealed class SigeticDbContext : DbContext
             nameof(Consumible) or nameof(MovimientoConsumible) => "Consumibles",
             nameof(TicketMesaAyuda) or nameof(TicketMesaAyudaHistorial) => "Mesa de ayuda",
             nameof(FormacionCurso) or nameof(FormacionMaterial) or nameof(FormacionPregunta) or nameof(FormacionOpcion)
-                or nameof(FormacionIntento) or nameof(FormacionRespuesta) => "Formacion",
+                or nameof(FormacionIntento) or nameof(FormacionRespuesta)
+                or nameof(FormacionCursoDependencia) or nameof(FormacionCursoUsuario) => "Formacion",
             nameof(Usuario) or nameof(Rol) or nameof(Permiso) or nameof(RolPermiso) => "Configuración",
             nameof(Dependencia) => "Dependencias",
             nameof(Funcionario) => "Funcionarios",
@@ -500,6 +503,14 @@ public sealed class SigeticDbContext : DbContext
                 .HasMaxLength(40)
                 .IsRequired();
 
+            entity.Property(e => e.UsuarioSolicitanteId)
+                .HasColumnName("usuario_solicitante_id");
+
+            entity.HasOne<Usuario>()
+                .WithMany()
+                .HasForeignKey(e => e.UsuarioSolicitanteId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasIndex(e => e.Codigo)
                 .IsUnique();
 
@@ -598,6 +609,7 @@ public sealed class SigeticDbContext : DbContext
             entity.HasIndex(e => e.FechaSolicitud);
             entity.HasIndex(e => e.Prioridad);
             entity.HasIndex(e => e.Eliminado);
+            entity.HasIndex(e => e.UsuarioSolicitanteId);
 
             entity.HasMany(e => e.Historial)
                 .WithOne(e => e.Ticket)
@@ -820,6 +832,22 @@ public sealed class SigeticDbContext : DbContext
             entity.Navigation(e => e.Intentos)
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+            entity.HasMany(e => e.DependenciasDestino)
+                .WithOne(e => e.Curso)
+                .HasForeignKey(e => e.CursoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.DependenciasDestino)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            entity.HasMany(e => e.UsuariosDestino)
+                .WithOne(e => e.Curso)
+                .HasForeignKey(e => e.CursoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.UsuariosDestino)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
             entity.HasIndex(e => e.Categoria);
             entity.HasIndex(e => e.Activo);
         });
@@ -1025,6 +1053,32 @@ public sealed class SigeticDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => e.IntentoId);
+        });
+
+        modelBuilder.Entity<FormacionCursoDependencia>(entity =>
+        {
+            entity.ToTable("formacion_cursos_dependencias");
+            entity.HasKey(e => new { e.CursoId, e.DependenciaId });
+            entity.Property(e => e.CursoId).HasColumnName("curso_id");
+            entity.Property(e => e.DependenciaId).HasColumnName("dependencia_id");
+            entity.HasOne(e => e.Dependencia)
+                .WithMany()
+                .HasForeignKey(e => e.DependenciaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.DependenciaId);
+        });
+
+        modelBuilder.Entity<FormacionCursoUsuario>(entity =>
+        {
+            entity.ToTable("formacion_cursos_usuarios");
+            entity.HasKey(e => new { e.CursoId, e.UsuarioId });
+            entity.Property(e => e.CursoId).HasColumnName("curso_id");
+            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            entity.HasOne(e => e.Usuario)
+                .WithMany()
+                .HasForeignKey(e => e.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.UsuarioId);
         });
     }
 
@@ -1256,10 +1310,33 @@ public sealed class SigeticDbContext : DbContext
             entity.Property(e => e.UltimoAccesoUtc)
                 .HasColumnName("ultimo_acceso_utc");
 
+            entity.Property(e => e.GoogleSubject)
+                .HasColumnName("google_subject")
+                .HasMaxLength(180);
+
+            entity.HasIndex(e => e.GoogleSubject)
+                .IsUnique();
+
+            entity.Property(e => e.DependenciaId)
+                .HasColumnName("dependencia_id");
+
+            entity.Property(e => e.Cargo)
+                .HasColumnName("cargo")
+                .HasMaxLength(180);
+
+            entity.Property(e => e.TipoVinculacion)
+                .HasColumnName("tipo_vinculacion")
+                .HasMaxLength(80);
+
             entity.HasOne(e => e.Rol)
                 .WithMany()
                 .HasForeignKey(e => e.RolId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Dependencia)
+                .WithMany()
+                .HasForeignKey(e => e.DependenciaId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 
@@ -1386,6 +1463,9 @@ public sealed class SigeticDbContext : DbContext
 
         var dependenciaPlaneacionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
         var dependenciaSistemasId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2");
+        var dependenciaFinancieraId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3");
+        var dependenciaSaludId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4");
+        var dependenciaGobiernoId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5");
 
         var adminUserId = Guid.Parse("99999999-9999-9999-9999-999999999999");
         var coordinadorUserId = Guid.Parse("99999999-9999-9999-9999-999999999901");
@@ -1503,6 +1583,39 @@ public sealed class SigeticDbContext : DbContext
                 Nombre = "Sistemas",
                 Codigo = "SIS",
                 Responsable = "Profesional TIC",
+                Correo = (string?)null,
+                Activa = true,
+                FechaCreacionUtc = seedDate,
+                FechaActualizacionUtc = (DateTime?)null
+            },
+            new
+            {
+                Id = dependenciaFinancieraId,
+                Nombre = "Secretaría Administrativa y Financiera",
+                Codigo = "SAF",
+                Responsable = "Secretaría Administrativa y Financiera",
+                Correo = (string?)null,
+                Activa = true,
+                FechaCreacionUtc = seedDate,
+                FechaActualizacionUtc = (DateTime?)null
+            },
+            new
+            {
+                Id = dependenciaSaludId,
+                Nombre = "Secretaría de Salud y Desarrollo Social",
+                Codigo = "SAL",
+                Responsable = "Secretaría de Salud y Desarrollo Social",
+                Correo = (string?)null,
+                Activa = true,
+                FechaCreacionUtc = seedDate,
+                FechaActualizacionUtc = (DateTime?)null
+            },
+            new
+            {
+                Id = dependenciaGobiernoId,
+                Nombre = "Secretaría de Gobierno",
+                Codigo = "GOB",
+                Responsable = "Secretaría de Gobierno",
                 Correo = (string?)null,
                 Activa = true,
                 FechaCreacionUtc = seedDate,

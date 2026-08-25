@@ -31,6 +31,7 @@ public sealed record RegistrarEncuestaTicketRequest(
 
 public sealed record TicketResponse(
     Guid Id,
+    Guid? UsuarioSolicitanteId,
     string Codigo,
     DateOnly FechaSolicitud,
     string Solicitante,

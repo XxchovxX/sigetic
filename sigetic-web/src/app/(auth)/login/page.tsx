@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
     Eye,
     EyeOff,
@@ -11,7 +11,26 @@ import {
     Mail,
     ShieldCheck,
 } from "lucide-react";
-import { getToken, login, saveSession } from "@/lib/auth";
+import {
+    getGoogleAuthConfig,
+    getToken,
+    login,
+    loginWithGoogle,
+    saveSession,
+} from "@/lib/auth";
+
+declare global {
+    interface Window {
+        google?: {
+            accounts: {
+                id: {
+                    initialize(options: { client_id: string; callback: (response: { credential: string }) => void }): void;
+                    renderButton(element: HTMLElement, options: Record<string, unknown>): void;
+                };
+            };
+        };
+    }
+}
 
 export default function LoginPage() {
     const router = useRouter();
@@ -21,6 +40,8 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState("");
+    const [googleEnabled, setGoogleEnabled] = useState(false);
+    const googleButtonRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const token = getToken();
@@ -28,6 +49,68 @@ export default function LoginPage() {
         if (token) {
             router.replace("/dashboard");
         }
+    }, [router]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function setupGoogle() {
+            try {
+                const config = await getGoogleAuthConfig();
+                if (cancelled || !config.enabled || !config.clientId) return;
+
+                setGoogleEnabled(true);
+
+                const initialize = () => {
+                    if (!window.google || !googleButtonRef.current || cancelled) return;
+                    googleButtonRef.current.innerHTML = "";
+                    window.google.accounts.id.initialize({
+                        client_id: config.clientId!,
+                        callback: async ({ credential }) => {
+                            try {
+                                setIsSubmitting(true);
+                                setMessage("");
+                                const response = await loginWithGoogle(credential);
+                                saveSession(response);
+                                router.replace(response.usuario.perfilCompleto ? "/formacion" : "/completar-perfil");
+                            } catch (error) {
+                                setMessage(error instanceof Error ? error.message : "No fue posible ingresar con Google.");
+                            } finally {
+                                setIsSubmitting(false);
+                            }
+                        },
+                    });
+                    window.google.accounts.id.renderButton(googleButtonRef.current, {
+                        type: "standard",
+                        theme: "outline",
+                        size: "large",
+                        text: "continue_with",
+                        shape: "rectangular",
+                        width: Math.min(480, googleButtonRef.current.clientWidth),
+                        locale: "es",
+                    });
+                };
+
+                if (window.google) {
+                    window.requestAnimationFrame(initialize);
+                } else {
+                    const existing = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
+                    if (existing) existing.addEventListener("load", initialize, { once: true });
+                    else {
+                        const script = document.createElement("script");
+                        script.src = "https://accounts.google.com/gsi/client";
+                        script.async = true;
+                        script.onload = initialize;
+                        document.head.appendChild(script);
+                    }
+                }
+            } catch {
+                setGoogleEnabled(false);
+            }
+        }
+
+        setupGoogle();
+        return () => { cancelled = true; };
     }, [router]);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -168,9 +251,20 @@ export default function LoginPage() {
                                 {isSubmitting ? "Validando acceso..." : "Entrar al sistema"}
                             </button>
 
+                            {googleEnabled ? (
+                                <>
+                                    <div className="my-5 flex items-center gap-3 text-xs font-bold text-slate-400">
+                                        <span className="h-px flex-1 bg-slate-200" />
+                                        Funcionarios y contratistas
+                                        <span className="h-px flex-1 bg-slate-200" />
+                                    </div>
+                                    <div ref={googleButtonRef} className="flex min-h-11 w-full justify-center" />
+                                </>
+                            ) : null}
+
                             <p className="mt-5 rounded-2xl bg-green-50 p-4 text-xs font-bold leading-6 text-[#006b2e]">
-                                El acceso es exclusivo para usuarios institucionales
-                                autorizados por el administrador SIGETIC.
+                                El acceso institucional conserva los perfiles administrativos.
+                                Funcionarios y contratistas pueden registrarse con Google.
                             </p>
                         </form>
 

@@ -14,6 +14,7 @@ import {
     Save,
     Search,
     ShieldCheck,
+    UsersRound,
     X,
 } from "lucide-react";
 import { getStoredUser, SESSION_CHANGED_EVENT, type AuthUser } from "@/lib/auth";
@@ -22,10 +23,12 @@ import {
     createCursoFormacion,
     getCertificadoFormacion,
     getCursosFormacion,
+    getDestinatariosFormacion,
     responderEvaluacionFormacion,
     type CrearCursoFormacionPayload,
     type FormacionCertificado,
     type FormacionCurso,
+    type FormacionDestinatarios,
     type ResultadoFormacion,
 } from "@/lib/formacion-api";
 
@@ -67,6 +70,8 @@ const initialCourseForm = {
     duracionMinutos: 30,
     puntajeMinimo: 80,
     activo: true,
+    dependenciaIds: [] as string[],
+    usuarioIds: [] as string[],
     materiales: [emptyMaterial],
     preguntas: [emptyPregunta],
 };
@@ -79,6 +84,10 @@ export default function FormacionPage() {
     const [resultado, setResultado] = useState<ResultadoFormacion | null>(null);
     const [certificado, setCertificado] = useState<FormacionCertificado | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("Todas");
+    const [dependenciaFilter, setDependenciaFilter] = useState("Todas");
+    const [userTargetSearch, setUserTargetSearch] = useState("");
+    const [destinatarios, setDestinatarios] = useState<FormacionDestinatarios>({ dependencias: [], usuarios: [] });
     const [showCreator, setShowCreator] = useState(false);
     const [form, setForm] = useState(initialCourseForm);
     const [isLoading, setIsLoading] = useState(true);
@@ -130,13 +139,29 @@ export default function FormacionPage() {
         const normalizedTerm = searchTerm.trim().toLowerCase();
 
         return cursos.filter((curso) => {
-            if (!normalizedTerm) return true;
-
-            return `${curso.titulo} ${curso.descripcion} ${curso.categoria} ${curso.dirigidoA}`
+            const matchesTerm = !normalizedTerm || `${curso.titulo} ${curso.descripcion} ${curso.categoria} ${curso.dirigidoA}`
                 .toLowerCase()
                 .includes(normalizedTerm);
+            const matchesCategory = categoryFilter === "Todas" || curso.categoria === categoryFilter;
+            const matchesDependencia = dependenciaFilter === "Todas" ||
+                (dependenciaFilter === "General" && curso.dependenciasDestino.length === 0) ||
+                curso.dependenciasDestino.some((item) => item.id === dependenciaFilter);
+
+            return matchesTerm && matchesCategory && matchesDependencia;
         });
-    }, [cursos, searchTerm]);
+    }, [cursos, searchTerm, categoryFilter, dependenciaFilter]);
+
+    const categories = useMemo(
+        () => Array.from(new Set(cursos.map((curso) => curso.categoria))).sort(),
+        [cursos]
+    );
+
+    useEffect(() => {
+        if (!canManage) return;
+        getDestinatariosFormacion()
+            .then(setDestinatarios)
+            .catch((err) => setError(err instanceof Error ? err.message : "No fue posible cargar los destinatarios."));
+    }, [canManage]);
 
     const stats = useMemo(() => {
         const aprobados = cursos.filter((curso) => curso.ultimoIntento?.aprobado).length;
@@ -236,6 +261,15 @@ export default function FormacionPage() {
         }));
     }
 
+    function toggleTarget(key: "dependenciaIds" | "usuarioIds", id: string) {
+        setForm((current) => ({
+            ...current,
+            [key]: current[key].includes(id)
+                ? current[key].filter((value) => value !== id)
+                : [...current[key], id],
+        }));
+    }
+
     function buildPayload(): CrearCursoFormacionPayload {
         return {
             titulo: form.titulo.trim(),
@@ -245,6 +279,8 @@ export default function FormacionPage() {
             duracionMinutos: Number(form.duracionMinutos),
             puntajeMinimo: Number(form.puntajeMinimo),
             activo: form.activo,
+            dependenciaIds: form.dependenciaIds,
+            usuarioIds: form.usuarioIds,
             materiales: form.materiales.map((material, index) => ({
                 titulo: material.titulo.trim(),
                 tipo: material.tipo.trim(),
@@ -504,6 +540,50 @@ export default function FormacionPage() {
                         />
                     </label>
 
+                    <section className="rounded-lg border border-slate-200 p-4">
+                        <div className="flex items-start gap-3">
+                            <UsersRound className="mt-0.5 h-5 w-5 text-[#006b2e]" />
+                            <div>
+                                <h4 className="text-sm font-black text-[#14233b]">Personal destinatario</h4>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Sin selecciones, el curso queda disponible para toda la Alcaldía. Puedes combinar secretarías y personas concretas.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-5 lg:grid-cols-2">
+                            <div>
+                                <p className="mb-2 text-xs font-black uppercase text-slate-600">Por secretaría o dependencia</p>
+                                <div className="max-h-52 space-y-2 overflow-y-auto border-t border-slate-100 pt-2">
+                                    {destinatarios.dependencias.map((item) => (
+                                        <label key={item.id} className="flex cursor-pointer items-center gap-3 py-1 text-sm text-slate-700">
+                                            <input type="checkbox" checked={form.dependenciaIds.includes(item.id)} onChange={() => toggleTarget("dependenciaIds", item.id)} className="h-4 w-4 accent-[#006b2e]" />
+                                            {item.nombre}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="mb-2 text-xs font-black uppercase text-slate-600">Personas específicas</p>
+                                <div className="mb-2 flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3">
+                                    <Search className="h-4 w-4 text-slate-400" />
+                                    <input value={userTargetSearch} onChange={(event) => setUserTargetSearch(event.target.value)} placeholder="Buscar nombre o correo" className="w-full bg-transparent text-sm outline-none" />
+                                </div>
+                                <div className="max-h-44 space-y-2 overflow-y-auto">
+                                    {destinatarios.usuarios
+                                        .filter((item) => `${item.nombreCompleto} ${item.correo}`.toLowerCase().includes(userTargetSearch.toLowerCase()))
+                                        .map((item) => (
+                                            <label key={item.id} className="flex cursor-pointer items-start gap-3 py-1 text-sm text-slate-700">
+                                                <input type="checkbox" checked={form.usuarioIds.includes(item.id)} onChange={() => toggleTarget("usuarioIds", item.id)} className="mt-0.5 h-4 w-4 accent-[#006b2e]" />
+                                                <span><span className="block font-bold">{item.nombreCompleto}</span><span className="text-xs text-slate-500">{item.dependencia ?? item.correo}</span></span>
+                                            </label>
+                                        ))}
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
                     <div className="space-y-3">
                         <div className="flex items-center justify-between gap-3">
                             <h4 className="text-sm font-black uppercase tracking-wide text-slate-600">
@@ -670,6 +750,20 @@ export default function FormacionPage() {
                         />
                     </div>
 
+                    {canManage ? (
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 outline-none">
+                                <option>Todas</option>
+                                {categories.map((item) => <option key={item}>{item}</option>)}
+                            </select>
+                            <select value={dependenciaFilter} onChange={(event) => setDependenciaFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 outline-none">
+                                <option value="Todas">Todas las secretarías</option>
+                                <option value="General">Toda la Alcaldía</option>
+                                {destinatarios.dependencias.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
+                            </select>
+                        </div>
+                    ) : null}
+
                     <div className="mt-4 space-y-3">
                         {isLoading ? (
                             <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-500">
@@ -696,6 +790,13 @@ export default function FormacionPage() {
                                             <p className="mt-1 text-xs font-bold text-slate-500">
                                                 {curso.categoria} · {curso.duracionMinutos} min
                                             </p>
+                                            {canManage ? (
+                                                <p className="mt-1 text-xs text-slate-500">
+                                                    {curso.dependenciasDestino.length || curso.usuariosDestino.length
+                                                        ? `${curso.dependenciasDestino.length} dependencia(s) · ${curso.usuariosDestino.length} persona(s)`
+                                                        : "Toda la Alcaldía"}
+                                                </p>
+                                            ) : null}
                                         </div>
                                         {curso.ultimoIntento?.aprobado ? (
                                             <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-black text-[#006b2e]">

@@ -85,6 +85,8 @@ export function getDefaultPathForRole(role: string) {
 export function canAccessPath(user: AuthUser | null, pathname: string) {
     if (!user) return false;
 
+    if (pathname === "/completar-perfil") return true;
+
     if (user.rol === ROLES.admin) return true;
 
     if (pathname === "/dashboard") {

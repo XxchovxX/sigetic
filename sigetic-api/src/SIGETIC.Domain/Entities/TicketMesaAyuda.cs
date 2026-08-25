@@ -40,6 +40,7 @@ public sealed class TicketMesaAyuda
     }
 
     public Guid Id { get; private set; }
+    public Guid? UsuarioSolicitanteId { get; private set; }
     public string Codigo { get; private set; } = string.Empty;
     public DateOnly FechaSolicitud { get; private set; }
     public string Solicitante { get; private set; } = string.Empty;
@@ -67,6 +68,11 @@ public sealed class TicketMesaAyuda
     public IReadOnlyCollection<TicketMesaAyudaHistorial> Historial => _historial;
 
     private readonly List<TicketMesaAyudaHistorial> _historial = new();
+
+    public void AsociarUsuarioSolicitante(Guid usuarioId)
+    {
+        UsuarioSolicitanteId = usuarioId == Guid.Empty ? null : usuarioId;
+    }
 
     public void ActualizarEstado(string estado, string? responsableAsignado, string? solucion)
     {

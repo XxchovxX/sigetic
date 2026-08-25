@@ -39,7 +39,24 @@ public sealed class Usuario
 
     public DateTime? UltimoAccesoUtc { get; private set; }
 
+    public string? GoogleSubject { get; private set; }
+
+    public Guid? DependenciaId { get; private set; }
+
+    public string? Cargo { get; private set; }
+
+    public string? TipoVinculacion { get; private set; }
+
     public Rol? Rol { get; private set; }
+
+    public Dependencia? Dependencia { get; private set; }
+
+    public bool EsCuentaGoogle => !string.IsNullOrWhiteSpace(GoogleSubject);
+
+    public bool PerfilCompleto => !EsCuentaGoogle ||
+        (DependenciaId.HasValue &&
+         !string.IsNullOrWhiteSpace(Cargo) &&
+         !string.IsNullOrWhiteSpace(TipoVinculacion));
 
     public void Actualizar(
         string nombreCompleto,
@@ -63,5 +80,34 @@ public sealed class Usuario
     public void RegistrarAcceso()
     {
         UltimoAccesoUtc = DateTime.UtcNow;
+    }
+
+    public void EnlazarGoogle(string googleSubject)
+    {
+        if (string.IsNullOrWhiteSpace(googleSubject))
+            throw new ArgumentException("La identidad de Google es obligatoria.");
+
+        GoogleSubject = googleSubject.Trim();
+        FechaActualizacionUtc = DateTime.UtcNow;
+    }
+
+    public void CompletarPerfil(
+        Guid dependenciaId,
+        string cargo,
+        string tipoVinculacion)
+    {
+        if (dependenciaId == Guid.Empty)
+            throw new ArgumentException("La dependencia es obligatoria.");
+
+        if (string.IsNullOrWhiteSpace(cargo))
+            throw new ArgumentException("El cargo es obligatorio.");
+
+        if (string.IsNullOrWhiteSpace(tipoVinculacion))
+            throw new ArgumentException("El tipo de vinculación es obligatorio.");
+
+        DependenciaId = dependenciaId;
+        Cargo = cargo.Trim();
+        TipoVinculacion = tipoVinculacion.Trim();
+        FechaActualizacionUtc = DateTime.UtcNow;
     }
 }
