@@ -37,8 +37,16 @@ public sealed class JwtTokenGenerator
             new("usuario_id", user.Id.ToString()),
             new("rol_id", user.RolId.ToString()),
             new("perfil_completo", user.PerfilCompleto ? "true" : "false"),
+            new("gestiona_formacion", user.PuedeGestionarFormacion ? "true" : "false"),
             new(ClaimTypes.Role, user.Rol)
         };
+
+        if (user.GestionFormacionHastaUtc.HasValue)
+        {
+            claims.Add(new Claim(
+                "gestion_formacion_hasta",
+                user.GestionFormacionHastaUtc.Value.ToUniversalTime().ToString("O")));
+        }
 
         foreach (string permiso in user.Permisos)
         {

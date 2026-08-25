@@ -42,7 +42,20 @@ public sealed record UsuarioResponse(
     Guid? DependenciaId,
     string? Dependencia,
     string? Cargo,
-    string? TipoVinculacion
+    string? TipoVinculacion,
+    bool PuedeGestionarFormacion,
+    DateTime? GestionFormacionHastaUtc
+);
+
+public sealed record ConfigurarGestionFormacionRequest(
+    bool Habilitada,
+    DateTime? HastaUtc
+);
+
+public sealed record ActualizarPerfilUsuarioRequest(
+    Guid DependenciaId,
+    string Cargo,
+    string TipoVinculacion
 );
 
 public sealed record CrearUsuarioRequest(
@@ -93,6 +106,7 @@ public sealed record FuncionarioResponse(
     string NombreCompleto,
     string Documento,
     string Cargo,
+    string TipoVinculacion,
     Guid DependenciaId,
     string Dependencia,
     string? Correo,
@@ -105,6 +119,7 @@ public sealed record CrearFuncionarioRequest(
     string NombreCompleto,
     string Documento,
     string Cargo,
+    string TipoVinculacion,
     Guid DependenciaId,
     string? Correo,
     string? Telefono
@@ -114,6 +129,7 @@ public sealed record ActualizarFuncionarioRequest(
     string NombreCompleto,
     string Documento,
     string Cargo,
+    string TipoVinculacion,
     Guid DependenciaId,
     string? Correo,
     string? Telefono,

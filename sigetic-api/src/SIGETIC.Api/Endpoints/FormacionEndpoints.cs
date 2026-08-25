@@ -193,10 +193,20 @@ public static class FormacionEndpoints
     {
         var role = user.FindFirstValue(ClaimTypes.Role);
 
-        return role is
+        if (role is
             "Administrador" or
             "Administrador TIC" or
             "Tecnico TIC" or
-            "Auxiliar de Sistemas";
+            "Auxiliar de Sistemas")
+        {
+            return true;
+        }
+
+        if (user.FindFirstValue("gestiona_formacion") != "true")
+            return false;
+
+        var expiration = user.FindFirstValue("gestion_formacion_hasta");
+        return string.IsNullOrWhiteSpace(expiration) ||
+            (DateTime.TryParse(expiration, out var hastaUtc) && hastaUtc.ToUniversalTime() > DateTime.UtcNow);
     }
 }

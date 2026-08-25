@@ -169,7 +169,7 @@ const menuItems: MenuItem[] = [
         roles: [ROLES.admin],
     },
     {
-        title: "Funcionarios",
+        title: "Personal",
         href: "/funcionarios",
         icon: UsersRound,
         roles: [ROLES.admin],

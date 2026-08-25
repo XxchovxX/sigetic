@@ -24,6 +24,8 @@ export type Usuario = {
     dependencia?: string | null;
     cargo?: string | null;
     tipoVinculacion?: string | null;
+    puedeGestionarFormacion: boolean;
+    gestionFormacionHastaUtc?: string | null;
 };
 
 export type Dependencia = {
@@ -41,6 +43,7 @@ export type Funcionario = {
     nombreCompleto: string;
     documento: string;
     cargo: string;
+    tipoVinculacion: string;
     dependenciaId: string;
     dependencia: string;
     correo?: string | null;
@@ -83,6 +86,7 @@ export type CrearFuncionarioPayload = {
     nombreCompleto: string;
     documento: string;
     cargo: string;
+    tipoVinculacion: string;
     dependenciaId: string;
     correo?: string | null;
     telefono?: string | null;
@@ -200,6 +204,26 @@ export async function cambiarPasswordUsuario(
     payload: CambiarPasswordUsuarioPayload
 ): Promise<void> {
     await adminFetch<void>(`/api/administracion/usuarios/${id}/password`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function configurarGestionFormacion(
+    id: string,
+    payload: { habilitada: boolean; hastaUtc?: string | null }
+): Promise<Usuario> {
+    return adminFetch<Usuario>(`/api/administracion/usuarios/${id}/gestion-formacion`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function actualizarPerfilUsuario(
+    id: string,
+    payload: { dependenciaId: string; cargo: string; tipoVinculacion: string }
+): Promise<Usuario> {
+    return adminFetch<Usuario>(`/api/administracion/usuarios/${id}/perfil`, {
         method: "PATCH",
         body: JSON.stringify(payload),
     });

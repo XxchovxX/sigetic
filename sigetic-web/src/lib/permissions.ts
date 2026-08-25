@@ -59,7 +59,7 @@ export function canManageConsumibles(user: AuthUser | null) {
 }
 
 export function canManageFormacion(user: AuthUser | null) {
-    return hasRole(user, trainingManagementRoles);
+    return hasRole(user, trainingManagementRoles) || Boolean(user?.puedeGestionarFormacion);
 }
 
 export function canViewAllTickets(user: AuthUser | null) {

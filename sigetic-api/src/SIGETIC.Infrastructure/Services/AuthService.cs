@@ -266,6 +266,20 @@ public sealed class AuthService : IAuthService
         return BuildAuthUser(usuario, permisos);
     }
 
+    public async Task<LoginResponse> RefreshAsync(
+        Guid usuarioId,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios
+            .Include(e => e.Rol)
+            .Include(e => e.Dependencia)
+            .FirstOrDefaultAsync(e => e.Id == usuarioId, cancellationToken)
+            ?? throw new UnauthorizedAccessException("No se encontró el usuario autenticado.");
+
+        ValidateActiveUser(usuario);
+        return await BuildLoginResponseAsync(usuario, cancellationToken);
+    }
+
     private async Task<LoginResponse> BuildLoginResponseAsync(
         Usuario usuario,
         CancellationToken cancellationToken)
@@ -293,7 +307,9 @@ public sealed class AuthService : IAuthService
             usuario.DependenciaId,
             usuario.Dependencia?.Nombre,
             usuario.Cargo,
-            usuario.TipoVinculacion);
+            usuario.TipoVinculacion,
+            usuario.PuedeGestionarFormacion,
+            usuario.GestionFormacionHastaUtc);
     }
 
     private static void ValidateActiveUser(Usuario usuario)

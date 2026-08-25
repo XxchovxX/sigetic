@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+    GraduationCap,
     KeyRound,
     Plus,
     Trash2,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import {
     cambiarPasswordUsuario,
+    configurarGestionFormacion,
     createUsuario,
     deleteUsuario,
     getRoles,
@@ -21,6 +23,14 @@ import {
 } from "@/lib/administracion-api";
 import { getStoredUser } from "@/lib/auth";
 
+function calculateTrainingExpiration(duration: string) {
+    if (duration === "indefinido") return null;
+
+    const expiration = new Date();
+    expiration.setUTCDate(expiration.getUTCDate() + Number(duration));
+    return expiration.toISOString();
+}
+
 export default function UsuariosPage() {
     const [usuarios, setUsuarios] = useState<Usuario[]>([]);
     const [roles, setRoles] = useState<Rol[]>([]);
@@ -30,6 +40,7 @@ export default function UsuariosPage() {
     const [password, setPassword] = useState("");
     const [rolId, setRolId] = useState("");
     const [passwords, setPasswords] = useState<Record<string, string>>({});
+    const [trainingDurations, setTrainingDurations] = useState<Record<string, string>>({});
 
     const [message, setMessage] = useState("");
     const [messageType, setMessageType] = useState<"success" | "error">("success");
@@ -38,6 +49,7 @@ export default function UsuariosPage() {
     const [changingPasswordId, setChangingPasswordId] = useState("");
     const [updatingStatusId, setUpdatingStatusId] = useState("");
     const [deletingUserId, setDeletingUserId] = useState("");
+    const [updatingTrainingId, setUpdatingTrainingId] = useState("");
 
     const loadData = useCallback(async () => {
         try {
@@ -242,6 +254,33 @@ export default function UsuariosPage() {
         }
     }
 
+    async function handleTrainingPermission(usuario: Usuario) {
+        try {
+            setUpdatingTrainingId(usuario.id);
+            setMessage("");
+
+            const habilitada = !usuario.puedeGestionarFormacion;
+            const duration = trainingDurations[usuario.id] ?? "30";
+            const hastaUtc = habilitada && duration !== "indefinido"
+                ? calculateTrainingExpiration(duration)
+                : null;
+
+            await configurarGestionFormacion(usuario.id, { habilitada, hastaUtc });
+            setMessageType("success");
+            setMessage(
+                habilitada
+                    ? `${usuario.nombreCompleto} ya puede gestionar formación.`
+                    : `Se revocó la gestión de formación para ${usuario.nombreCompleto}.`
+            );
+            await loadData();
+        } catch (error) {
+            setMessageType("error");
+            setMessage(error instanceof Error ? error.message : "No fue posible actualizar el permiso de formación.");
+        } finally {
+            setUpdatingTrainingId("");
+        }
+    }
+
     return (
         <div className="grid items-start gap-6 xl:grid-cols-[390px_minmax(0,1fr)]">
             <section className="rounded-[1.35rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -393,6 +432,11 @@ export default function UsuariosPage() {
                                             {usuario.dependencia ? (
                                                 <span className="mt-1 block text-xs text-slate-500">{usuario.dependencia}{usuario.cargo ? ` · ${usuario.cargo}` : ""}</span>
                                             ) : null}
+                                            {usuario.puedeGestionarFormacion ? (
+                                                <span className="mt-1 block text-xs font-bold text-[#006b2e]">
+                                                    Gestor de formación{usuario.gestionFormacionHastaUtc ? ` hasta ${new Date(usuario.gestionFormacionHastaUtc).toLocaleDateString("es-CO")}` : ""}
+                                                </span>
+                                            ) : null}
                                         </td>
                                         <td className="px-5 py-4 align-middle">
                                             <span
@@ -406,6 +450,24 @@ export default function UsuariosPage() {
                                         </td>
                                         <td className="px-5 py-4 align-middle">
                                             <div className="grid gap-2">
+                                                {!(["Administrador", "Administrador TIC", "Tecnico TIC", "Auxiliar de Sistemas"].includes(usuario.rol)) ? (
+                                                    <div className="flex items-center gap-2">
+                                                        {!usuario.puedeGestionarFormacion ? (
+                                                            <select value={trainingDurations[usuario.id] ?? "30"} onChange={(event) => setTrainingDurations((current) => ({ ...current, [usuario.id]: event.target.value }))} className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold">
+                                                                <option value="7">7 días</option>
+                                                                <option value="30">30 días</option>
+                                                                <option value="90">90 días</option>
+                                                                <option value="indefinido">Indefinido</option>
+                                                            </select>
+                                                        ) : null}
+                                                        <button type="button" onClick={() => handleTrainingPermission(usuario)} disabled={updatingTrainingId === usuario.id} className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black ${usuario.puedeGestionarFormacion ? "bg-amber-50 text-amber-700" : "bg-green-50 text-[#006b2e]"}`}>
+                                                            <GraduationCap className="h-4 w-4" />
+                                                            {usuario.puedeGestionarFormacion ? "Revocar formación" : "Autorizar formación"}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs font-bold text-slate-500">Gestiona formación por su rol.</p>
+                                                )}
                                                 <div className="flex items-center gap-2">
                                                     <input
                                                         type="password"

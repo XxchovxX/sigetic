@@ -17,6 +17,8 @@ export type AuthUser = {
     dependencia?: string | null;
     cargo?: string | null;
     tipoVinculacion?: string | null;
+    puedeGestionarFormacion: boolean;
+    gestionFormacionHastaUtc?: string | null;
 };
 
 export type LoginResponse = {
@@ -93,6 +95,15 @@ export function saveSession(response: LoginResponse) {
     localStorage.setItem(TOKEN_KEY, response.token);
     localStorage.setItem(USER_KEY, JSON.stringify(response.usuario));
     window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+}
+
+export async function refreshSession(token: string): Promise<LoginResponse> {
+    const response = await fetch(`${getApiUrl()}/api/auth/refresh`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+    });
+    return handleResponse<LoginResponse>(response);
 }
 
 export async function getGoogleAuthConfig(): Promise<GoogleAuthConfig> {

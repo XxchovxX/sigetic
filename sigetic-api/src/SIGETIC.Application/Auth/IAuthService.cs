@@ -23,4 +23,8 @@ public interface IAuthService
     Task<AuthUserResponse> GetCurrentUserAsync(
         Guid usuarioId,
         CancellationToken cancellationToken);
+
+    Task<LoginResponse> RefreshAsync(
+        Guid usuarioId,
+        CancellationToken cancellationToken);
 }

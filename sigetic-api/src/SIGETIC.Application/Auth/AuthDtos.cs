@@ -17,7 +17,9 @@ public sealed record AuthUserResponse(
     Guid? DependenciaId,
     string? Dependencia,
     string? Cargo,
-    string? TipoVinculacion
+    string? TipoVinculacion,
+    bool PuedeGestionarFormacion,
+    DateTime? GestionFormacionHastaUtc
 );
 
 public sealed record GoogleLoginRequest(string Credential);

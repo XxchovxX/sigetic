@@ -1328,6 +1328,18 @@ public sealed class SigeticDbContext : DbContext
                 .HasColumnName("tipo_vinculacion")
                 .HasMaxLength(80);
 
+            entity.Property(e => e.GestionFormacionHabilitada)
+                .HasColumnName("gestion_formacion_habilitada")
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            entity.Property(e => e.GestionFormacionHastaUtc)
+                .HasColumnName("gestion_formacion_hasta_utc");
+
+            entity.Ignore(e => e.PuedeGestionarFormacion);
+            entity.Ignore(e => e.EsCuentaGoogle);
+            entity.Ignore(e => e.PerfilCompleto);
+
             entity.HasOne(e => e.Rol)
                 .WithMany()
                 .HasForeignKey(e => e.RolId)
@@ -1415,6 +1427,12 @@ public sealed class SigeticDbContext : DbContext
             entity.Property(e => e.Cargo)
                 .HasColumnName("cargo")
                 .HasMaxLength(150)
+                .IsRequired();
+
+            entity.Property(e => e.TipoVinculacion)
+                .HasColumnName("tipo_vinculacion")
+                .HasMaxLength(80)
+                .HasDefaultValue("Funcionario")
                 .IsRequired();
 
             entity.Property(e => e.DependenciaId)

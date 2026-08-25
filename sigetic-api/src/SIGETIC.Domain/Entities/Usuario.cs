@@ -47,6 +47,10 @@ public sealed class Usuario
 
     public string? TipoVinculacion { get; private set; }
 
+    public bool GestionFormacionHabilitada { get; private set; }
+
+    public DateTime? GestionFormacionHastaUtc { get; private set; }
+
     public Rol? Rol { get; private set; }
 
     public Dependencia? Dependencia { get; private set; }
@@ -57,6 +61,9 @@ public sealed class Usuario
         (DependenciaId.HasValue &&
          !string.IsNullOrWhiteSpace(Cargo) &&
          !string.IsNullOrWhiteSpace(TipoVinculacion));
+
+    public bool PuedeGestionarFormacion => GestionFormacionHabilitada &&
+        (!GestionFormacionHastaUtc.HasValue || GestionFormacionHastaUtc.Value > DateTime.UtcNow);
 
     public void Actualizar(
         string nombreCompleto,
@@ -108,6 +115,16 @@ public sealed class Usuario
         DependenciaId = dependenciaId;
         Cargo = cargo.Trim();
         TipoVinculacion = tipoVinculacion.Trim();
+        FechaActualizacionUtc = DateTime.UtcNow;
+    }
+
+    public void ConfigurarGestionFormacion(bool habilitada, DateTime? hastaUtc)
+    {
+        if (habilitada && hastaUtc.HasValue && hastaUtc.Value <= DateTime.UtcNow)
+            throw new ArgumentException("La fecha de vencimiento debe ser futura.");
+
+        GestionFormacionHabilitada = habilitada;
+        GestionFormacionHastaUtc = habilitada ? hastaUtc?.ToUniversalTime() : null;
         FechaActualizacionUtc = DateTime.UtcNow;
     }
 }

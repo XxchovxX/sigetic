@@ -69,7 +69,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
         subtitle: "Áreas administrativas y operativas",
     },
     "/funcionarios": {
-        title: "Funcionarios",
+        title: "Personal",
         subtitle: "Usuarios internos y asignaciones",
     },
     "/reportes": {

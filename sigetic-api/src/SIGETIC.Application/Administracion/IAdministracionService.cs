@@ -34,6 +34,16 @@ public interface IAdministracionService
         CambiarPasswordUsuarioRequest request,
         CancellationToken cancellationToken);
 
+    Task<UsuarioResponse> ConfigurarGestionFormacionAsync(
+        Guid id,
+        ConfigurarGestionFormacionRequest request,
+        CancellationToken cancellationToken);
+
+    Task<UsuarioResponse> ActualizarPerfilUsuarioAsync(
+        Guid id,
+        ActualizarPerfilUsuarioRequest request,
+        CancellationToken cancellationToken);
+
     Task DeleteUsuarioAsync(
         Guid id,
         Guid currentUserId,

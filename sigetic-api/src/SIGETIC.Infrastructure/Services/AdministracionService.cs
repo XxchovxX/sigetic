@@ -127,11 +127,14 @@ public sealed class AdministracionService : IAdministracionService
                 e.Activo,
                 e.FechaCreacionUtc,
                 e.UltimoAccesoUtc,
-                e.EsCuentaGoogle,
+                e.GoogleSubject != null,
                 e.DependenciaId,
                 e.Dependencia != null ? e.Dependencia.Nombre : null,
                 e.Cargo,
-                e.TipoVinculacion))
+                e.TipoVinculacion,
+                e.GestionFormacionHabilitada &&
+                    (!e.GestionFormacionHastaUtc.HasValue || e.GestionFormacionHastaUtc > DateTime.UtcNow),
+                e.GestionFormacionHastaUtc))
             .ToListAsync(cancellationToken);
     }
 
@@ -189,7 +192,9 @@ public sealed class AdministracionService : IAdministracionService
             usuario.DependenciaId,
             usuario.Dependencia?.Nombre,
             usuario.Cargo,
-            usuario.TipoVinculacion);
+            usuario.TipoVinculacion,
+            usuario.PuedeGestionarFormacion,
+            usuario.GestionFormacionHastaUtc);
     }
 
     public async Task<UsuarioResponse> UpdateUsuarioAsync(
@@ -244,7 +249,66 @@ public sealed class AdministracionService : IAdministracionService
             usuario.DependenciaId,
             usuario.Dependencia?.Nombre,
             usuario.Cargo,
-            usuario.TipoVinculacion);
+            usuario.TipoVinculacion,
+            usuario.PuedeGestionarFormacion,
+            usuario.GestionFormacionHastaUtc);
+    }
+
+    public async Task<UsuarioResponse> ConfigurarGestionFormacionAsync(
+        Guid id,
+        ConfigurarGestionFormacionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios
+            .Include(e => e.Rol)
+            .Include(e => e.Dependencia)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("No se encontró el usuario solicitado.");
+
+        usuario.ConfigurarGestionFormacion(request.Habilitada, request.HastaUtc);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToUsuarioResponse(usuario);
+    }
+
+    public async Task<UsuarioResponse> ActualizarPerfilUsuarioAsync(
+        Guid id,
+        ActualizarPerfilUsuarioRequest request,
+        CancellationToken cancellationToken)
+    {
+        var usuario = await _dbContext.Usuarios
+            .Include(e => e.Rol)
+            .Include(e => e.Dependencia)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("No se encontró el usuario solicitado.");
+
+        var dependencia = await _dbContext.Dependencias
+            .FirstOrDefaultAsync(e => e.Id == request.DependenciaId && e.Activa, cancellationToken)
+            ?? throw new ArgumentException("Selecciona una dependencia activa.");
+
+        usuario.CompletarPerfil(request.DependenciaId, request.Cargo, request.TipoVinculacion);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ToUsuarioResponse(usuario, dependencia.Nombre);
+    }
+
+    private static UsuarioResponse ToUsuarioResponse(Usuario usuario, string? dependencia = null)
+    {
+        return new UsuarioResponse(
+            usuario.Id,
+            usuario.NombreCompleto,
+            usuario.Correo,
+            usuario.RolId,
+            usuario.Rol?.Nombre ?? "Sin rol",
+            usuario.Activo,
+            usuario.FechaCreacionUtc,
+            usuario.UltimoAccesoUtc,
+            usuario.EsCuentaGoogle,
+            usuario.DependenciaId,
+            dependencia ?? usuario.Dependencia?.Nombre,
+            usuario.Cargo,
+            usuario.TipoVinculacion,
+            usuario.PuedeGestionarFormacion,
+            usuario.GestionFormacionHastaUtc);
     }
 
     public async Task CambiarPasswordUsuarioAsync(
@@ -400,6 +464,7 @@ public sealed class AdministracionService : IAdministracionService
                 e.NombreCompleto,
                 e.Documento,
                 e.Cargo,
+                e.TipoVinculacion,
                 e.DependenciaId,
                 e.Dependencia != null ? e.Dependencia.Nombre : "Sin dependencia",
                 e.Correo,
@@ -439,6 +504,7 @@ public sealed class AdministracionService : IAdministracionService
             request.NombreCompleto,
             request.Documento,
             request.Cargo,
+            request.TipoVinculacion,
             request.DependenciaId,
             request.Correo,
             request.Telefono);
@@ -485,6 +551,7 @@ public sealed class AdministracionService : IAdministracionService
             request.NombreCompleto,
             request.Documento,
             request.Cargo,
+            request.TipoVinculacion,
             request.DependenciaId,
             request.Correo,
             request.Telefono,
@@ -563,6 +630,7 @@ public sealed class AdministracionService : IAdministracionService
             funcionario.NombreCompleto,
             funcionario.Documento,
             funcionario.Cargo,
+            funcionario.TipoVinculacion,
             funcionario.DependenciaId,
             dependencia,
             funcionario.Correo,

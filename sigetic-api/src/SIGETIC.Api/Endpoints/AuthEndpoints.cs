@@ -94,6 +94,25 @@ public static class AuthEndpoints
         })
         .RequireAuthorization();
 
+        group.MapPost("/refresh", async (
+            ClaimsPrincipal user,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            if (!Guid.TryParse(user.FindFirstValue("usuario_id"), out Guid usuarioId))
+                return Results.Unauthorized();
+
+            try
+            {
+                return Results.Ok(await authService.RefreshAsync(usuarioId, cancellationToken));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+        })
+        .RequireAuthorization();
+
         group.MapGet("/perfil/dependencias", async (
             IAuthService authService,
             CancellationToken cancellationToken) =>

@@ -10,6 +10,7 @@ public sealed class Funcionario
         string nombreCompleto,
         string documento,
         string cargo,
+        string tipoVinculacion,
         Guid dependenciaId,
         string? correo,
         string? telefono)
@@ -18,6 +19,7 @@ public sealed class Funcionario
         NombreCompleto = nombreCompleto.Trim();
         Documento = documento.Trim();
         Cargo = cargo.Trim();
+        TipoVinculacion = NormalizeTipoVinculacion(tipoVinculacion);
         DependenciaId = dependenciaId;
         Correo = string.IsNullOrWhiteSpace(correo)
             ? null
@@ -37,6 +39,8 @@ public sealed class Funcionario
 
     public string Cargo { get; private set; } = string.Empty;
 
+    public string TipoVinculacion { get; private set; } = "Funcionario";
+
     public Guid DependenciaId { get; private set; }
 
     public string? Correo { get; private set; }
@@ -55,6 +59,7 @@ public sealed class Funcionario
         string nombreCompleto,
         string documento,
         string cargo,
+        string tipoVinculacion,
         Guid dependenciaId,
         string? correo,
         string? telefono,
@@ -63,6 +68,7 @@ public sealed class Funcionario
         NombreCompleto = nombreCompleto.Trim();
         Documento = documento.Trim();
         Cargo = cargo.Trim();
+        TipoVinculacion = NormalizeTipoVinculacion(tipoVinculacion);
         DependenciaId = dependenciaId;
         Correo = string.IsNullOrWhiteSpace(correo)
             ? null
@@ -72,5 +78,12 @@ public sealed class Funcionario
             : telefono.Trim();
         Activo = activo;
         FechaActualizacionUtc = DateTime.UtcNow;
+    }
+
+    private static string NormalizeTipoVinculacion(string? value)
+    {
+        return string.Equals(value?.Trim(), "Contratista", StringComparison.OrdinalIgnoreCase)
+            ? "Contratista"
+            : "Funcionario";
     }
 }

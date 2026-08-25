@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import {
     clearSession,
-    getCurrentUser,
     getStoredUser,
     getToken,
     saveSession,
+    refreshSession,
     type AuthUser,
 } from "@/lib/auth";
 import { canAccessPath, getDefaultPathForRole } from "@/lib/permissions";
@@ -38,13 +38,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
                     setUser(storedUser);
                 }
 
-                const currentUser = await getCurrentUser(token);
-
-                saveSession({
-                    token,
-                    expiraEnUtc: "",
-                    usuario: currentUser,
-                });
+                const refreshedSession = await refreshSession(token);
+                const currentUser = refreshedSession.usuario;
+                saveSession(refreshedSession);
 
                 setUser(currentUser);
 

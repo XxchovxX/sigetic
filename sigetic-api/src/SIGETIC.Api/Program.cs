@@ -135,13 +135,6 @@ builder.Services.AddAuthorization(options =>
         "Secretario de Despacho",
         "Consulta / Control Interno"
     ];
-    string[] formacionGestion =
-    [
-        "Administrador",
-        "Administrador TIC",
-        "Tecnico TIC",
-        "Auxiliar de Sistemas"
-    ];
 
     options.AddPolicy("Administracion", policy => policy.RequireRole(admin));
     options.AddPolicy("TecnicoLectura", policy => policy.RequireRole(technicalRead));
@@ -156,7 +149,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Formacion", policy => policy
         .RequireRole(formacion)
         .RequireClaim("perfil_completo", "true"));
-    options.AddPolicy("FormacionGestion", policy => policy.RequireRole(formacionGestion));
+    options.AddPolicy("FormacionGestion", policy => policy.RequireAssertion(context =>
+        CanManageTraining(context.User)));
 });
 
 var app = builder.Build();
@@ -254,6 +248,21 @@ static bool IsAllowedWebOrigin(string origin)
     }
 
     return IsPrivateNetworkHost(uri.Host);
+}
+
+static bool CanManageTraining(System.Security.Claims.ClaimsPrincipal user)
+{
+    var role = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+    if (role is "Administrador" or "Administrador TIC" or "Tecnico TIC" or "Auxiliar de Sistemas")
+        return true;
+
+    if (user.FindFirst("gestiona_formacion")?.Value != "true")
+        return false;
+
+    var expiration = user.FindFirst("gestion_formacion_hasta")?.Value;
+    return string.IsNullOrWhiteSpace(expiration) ||
+        (DateTime.TryParse(expiration, out var hastaUtc) && hastaUtc.ToUniversalTime() > DateTime.UtcNow);
 }
 
 static bool IsPrivateNetworkHost(string host)

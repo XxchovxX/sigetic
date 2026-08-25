@@ -150,6 +150,52 @@ public static class AdministracionEndpoints
             }
         });
 
+        group.MapPatch("/usuarios/{id:guid}/gestion-formacion", async (
+            Guid id,
+            ConfigurarGestionFormacionRequest request,
+            IAdministracionService service,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                return Results.Ok(await service.ConfigurarGestionFormacionAsync(
+                    id,
+                    request,
+                    cancellationToken));
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { message = exception.Message });
+            }
+            catch (KeyNotFoundException exception)
+            {
+                return Results.NotFound(new { message = exception.Message });
+            }
+        });
+
+        group.MapPatch("/usuarios/{id:guid}/perfil", async (
+            Guid id,
+            ActualizarPerfilUsuarioRequest request,
+            IAdministracionService service,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                return Results.Ok(await service.ActualizarPerfilUsuarioAsync(
+                    id,
+                    request,
+                    cancellationToken));
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { message = exception.Message });
+            }
+            catch (KeyNotFoundException exception)
+            {
+                return Results.NotFound(new { message = exception.Message });
+            }
+        });
+
         group.MapDelete("/usuarios/{id:guid}", async (
             Guid id,
             HttpContext httpContext,
