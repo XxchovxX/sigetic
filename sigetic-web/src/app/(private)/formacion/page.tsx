@@ -777,23 +777,10 @@ export default function FormacionPage() {
                     </div>
 
                     <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
+                        <div>
                             <h4 className="text-sm font-black uppercase tracking-wide text-slate-600">
                                 Evaluación
                             </h4>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setForm((current) => ({
-                                        ...current,
-                                        preguntas: [...current.preguntas, createQuestion()],
-                                    }))
-                                }
-                                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-green-50 hover:text-[#006b2e]"
-                            >
-                                <Plus className="h-4 w-4" />
-                                Agregar pregunta
-                            </button>
                         </div>
 
                         {form.preguntas.map((pregunta, preguntaIndex) => (
@@ -911,18 +898,33 @@ export default function FormacionPage() {
                         ))}
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSaving}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#006b2e] px-5 text-sm font-black text-white shadow-lg shadow-green-900/15 transition hover:bg-[#0b8f3a] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isSaving ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Save className="h-4 w-4" />
-                        )}
-                        Guardar curso
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setForm((current) => ({
+                                    ...current,
+                                    preguntas: [...current.preguntas, createQuestion()],
+                                }))
+                            }
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-600 transition hover:border-green-200 hover:bg-green-50 hover:text-[#006b2e]"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Agregar pregunta
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSaving}
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#006b2e] px-5 text-sm font-black text-white shadow-lg shadow-green-900/15 transition hover:bg-[#0b8f3a] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isSaving ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Save className="h-4 w-4" />
+                            )}
+                            Guardar curso
+                        </button>
+                    </div>
                 </form>
             ) : null}
 
