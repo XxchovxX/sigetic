@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+    AlertCircle,
     Award,
     BookOpenCheck,
     CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
     Download,
-    ExternalLink,
     FileCheck2,
+    FileText,
     GraduationCap,
     Link2,
     Loader2,
@@ -31,6 +34,7 @@ import {
     type FormacionCertificado,
     type FormacionCurso,
     type FormacionDestinatarios,
+    type FormacionMaterial,
     type FormacionPregunta,
     type ResultadoFormacion,
     type TipoPreguntaFormacion,
@@ -113,6 +117,16 @@ function minimumOptions(tipo: TipoPreguntaFormacion) {
     return 4;
 }
 
+function isQuestionAnswered(pregunta: FormacionPregunta, answer?: RespuestaForm) {
+    if (!answer) return false;
+    if (pregunta.tipo === "SeleccionMultiple") return Boolean(answer.opcionIds?.length);
+    if (pregunta.tipo === "RespuestaCorta" || pregunta.tipo === "RespuestaLarga") return Boolean(answer.texto?.trim());
+    if (pregunta.tipo === "Relacionar") {
+        return pregunta.opciones.every((opcion) => Boolean(answer.relaciones?.[opcion.id]));
+    }
+    return Boolean(answer.opcionId);
+}
+
 const initialCourseForm = {
     titulo: "",
     descripcion: "",
@@ -132,6 +146,9 @@ export default function FormacionPage() {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [cursos, setCursos] = useState<FormacionCurso[]>([]);
     const [selectedCursoId, setSelectedCursoId] = useState("");
+    const [selectedMaterialId, setSelectedMaterialId] = useState("");
+    const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+    const [questionAlert, setQuestionAlert] = useState("");
     const [answers, setAnswers] = useState<Record<string, RespuestaForm>>({});
     const [resultado, setResultado] = useState<ResultadoFormacion | null>(null);
     const [certificado, setCertificado] = useState<FormacionCertificado | null>(null);
@@ -186,6 +203,16 @@ export default function FormacionPage() {
 
     const canManage = canManageFormacion(user);
     const selectedCurso = cursos.find((curso) => curso.id === selectedCursoId) ?? null;
+    const selectedMaterial = selectedCurso?.materiales.find((material) => material.id === selectedMaterialId)
+        ?? selectedCurso?.materiales[0]
+        ?? null;
+    const activeQuestion = selectedCurso?.preguntas[activeQuestionIndex] ?? null;
+    const answeredCount = selectedCurso?.preguntas.filter((pregunta) =>
+        isQuestionAnswered(pregunta, answers[pregunta.id])).length ?? 0;
+    const totalQuestions = selectedCurso?.preguntas.length ?? 0;
+    const progressPercent = totalQuestions > 0
+        ? Math.round((answeredCount / totalQuestions) * 100)
+        : 0;
 
     const filteredCursos = useMemo(() => {
         const normalizedTerm = searchTerm.trim().toLowerCase();
@@ -248,12 +275,36 @@ export default function FormacionPage() {
     }, [cursos]);
 
     function resetEvaluation(cursoId: string) {
+        const curso = cursos.find((item) => item.id === cursoId);
         setSelectedCursoId(cursoId);
+        setSelectedMaterialId(curso?.materiales[0]?.id ?? "");
+        setActiveQuestionIndex(0);
+        setQuestionAlert("");
         setAnswers({});
         setResultado(null);
         setCertificado(null);
         setMessage("");
         setError("");
+    }
+
+    function updateAnswer(pregunta: FormacionPregunta, value: RespuestaForm) {
+        setAnswers((current) => ({ ...current, [pregunta.id]: value }));
+        if (isQuestionAnswered(pregunta, value)) setQuestionAlert("");
+    }
+
+    function goToNextQuestion() {
+        if (!activeQuestion || !selectedCurso) return;
+        if (!isQuestionAnswered(activeQuestion, answers[activeQuestion.id])) {
+            setQuestionAlert("Responde esta pregunta antes de continuar.");
+            return;
+        }
+        setQuestionAlert("");
+        setActiveQuestionIndex((current) => Math.min(current + 1, selectedCurso.preguntas.length - 1));
+    }
+
+    function goToPreviousQuestion() {
+        setQuestionAlert("");
+        setActiveQuestionIndex((current) => Math.max(current - 1, 0));
     }
 
     function updateMaterial(index: number, key: keyof MaterialForm, value: string) {
@@ -460,25 +511,22 @@ export default function FormacionPage() {
 
         if (!selectedCurso) return;
 
-        const missingAnswer = selectedCurso.preguntas.some((pregunta) => {
-            const answer = answers[pregunta.id];
-            if (!answer) return true;
-            if (pregunta.tipo === "SeleccionMultiple") return !answer.opcionIds?.length;
-            if (pregunta.tipo === "RespuestaCorta" || pregunta.tipo === "RespuestaLarga") return !answer.texto?.trim();
-            if (pregunta.tipo === "Relacionar") {
-                return pregunta.opciones.some((opcion) => !answer.relaciones?.[opcion.id]);
-            }
-            return !answer.opcionId;
-        });
+        const missingIndex = selectedCurso.preguntas.findIndex(
+            (pregunta) => !isQuestionAnswered(pregunta, answers[pregunta.id])
+        );
 
-        if (missingAnswer) {
-            setError("Responde todas las preguntas antes de enviar la evaluación.");
+        if (missingIndex >= 0) {
+            setActiveQuestionIndex(missingIndex);
+            setQuestionAlert(`La pregunta ${missingIndex + 1} está pendiente. Respóndela para poder enviar la evaluación.`);
+            setError("");
+            window.requestAnimationFrame(() => document.getElementById("evaluacion-formacion")?.scrollIntoView({ behavior: "smooth", block: "start" }));
             return;
         }
 
         try {
             setIsSubmitting(true);
             setError("");
+            setQuestionAlert("");
             setMessage("");
 
             const result = await responderEvaluacionFormacion(selectedCurso.id, {
@@ -763,7 +811,7 @@ export default function FormacionPage() {
                                     label="Tipo"
                                     value={material.tipo}
                                     onChange={(value) => updateMaterial(index, "tipo", value)}
-                                    options={["Video", "Documento", "Enlace", "Presentación"]}
+                                    options={["Video", "PDF", "Word", "PowerPoint", "Imagen", "Audio", "Sitio web"]}
                                 />
                                 <Input
                                     label="URL"
@@ -1039,70 +1087,101 @@ export default function FormacionPage() {
                                 />
                             </div>
 
-                            <div>
-                                <h3 className="text-lg font-black text-[#14233b]">
-                                    Material de estudio
-                                </h3>
-                                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                                    {selectedCurso.materiales.map((material) => (
-                                        <a
-                                            key={material.id}
-                                            href={material.url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4 transition hover:bg-green-50"
-                                        >
-                                            <span className="flex min-w-0 items-center gap-3">
-                                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
-                                                    <Link2 className="h-4 w-4" />
-                                                </span>
-                                                <span className="min-w-0">
-                                                    <span className="block truncate text-sm font-black text-[#14233b]">
-                                                        {material.titulo}
-                                                    </span>
-                                                    <span className="text-xs text-slate-500">
-                                                        {material.tipo}
-                                                    </span>
-                                                </span>
-                                            </span>
-                                            <ExternalLink className="h-4 w-4 shrink-0 text-slate-400" />
-                                        </a>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <form onSubmit={handleSubmitEvaluation} className="space-y-4">
-                                <h3 className="text-lg font-black text-[#14233b]">
-                                    Evaluación de aprobación
-                                </h3>
-                                {selectedCurso.preguntas.map((pregunta, index) => (
-                                    <div
-                                        key={pregunta.id}
-                                        className="rounded-2xl border border-slate-200 p-4"
-                                    >
-                                        <p className="text-sm font-black text-[#14233b]">
-                                            {index + 1}. {pregunta.texto}
-                                        </p>
-                                        <QuestionAnswer
-                                            pregunta={pregunta}
-                                            value={answers[pregunta.id] ?? {}}
-                                            onChange={(value) => setAnswers((current) => ({ ...current, [pregunta.id]: value }))}
-                                        />
+                            <section>
+                                <div className="flex items-end justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#006b2e]">Contenido del curso</p>
+                                        <h3 className="mt-1 text-lg font-black text-[#14233b]">Material de estudio</h3>
                                     </div>
-                                ))}
+                                    <span className="text-xs font-bold text-slate-500">{selectedCurso.materiales.length} material(es)</span>
+                                </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#006b2e] px-5 text-sm font-black text-white shadow-lg shadow-green-900/15 transition hover:bg-[#0b8f3a] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                {selectedMaterial ? <MaterialViewer material={selectedMaterial} /> : null}
+
+                                {selectedCurso.materiales.length > 1 ? (
+                                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                                        {selectedCurso.materiales.map((material, index) => (
+                                            <button
+                                                key={material.id}
+                                                type="button"
+                                                onClick={() => setSelectedMaterialId(material.id)}
+                                                className={`flex min-w-48 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${selectedMaterial?.id === material.id ? "border-green-200 bg-green-50 text-[#006b2e]" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                                            >
+                                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white"><FileText className="h-4 w-4" /></span>
+                                                <span className="min-w-0"><span className="block truncate text-xs font-black">{index + 1}. {material.titulo}</span><span className="text-[11px]">{material.tipo}</span></span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </section>
+
+                            <form id="evaluacion-formacion" onSubmit={handleSubmitEvaluation} className="scroll-mt-4 space-y-4 border-t border-slate-200 pt-6">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#006b2e]">Validación de aprendizaje</p>
+                                        <h3 className="mt-1 text-lg font-black text-[#14233b]">Evaluación de aprobación</h3>
+                                    </div>
+                                    <label className="block sm:w-48">
+                                        <span className="mb-1 block text-[11px] font-black uppercase text-slate-500">Ir a una pregunta</span>
+                                        <select
+                                            value={activeQuestionIndex}
+                                            onChange={(event) => { setActiveQuestionIndex(Number(event.target.value)); setQuestionAlert(""); }}
+                                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-[#0b8f3a]"
+                                        >
+                                            {selectedCurso.preguntas.map((pregunta, index) => (
+                                                <option key={pregunta.id} value={index}>{isQuestionAnswered(pregunta, answers[pregunta.id]) ? "✓" : "○"} Pregunta {index + 1}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+                                        <span className="text-[#14233b]">{answeredCount} de {totalQuestions} respondidas</span>
+                                        <span className={answeredCount === totalQuestions ? "text-[#006b2e]" : "text-slate-500"}>{progressPercent}% completado · faltan {Math.max(totalQuestions - answeredCount, 0)}</span>
+                                    </div>
+                                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-200">
+                                        <div className="h-full rounded-full bg-[#0b8f3a] transition-[width] duration-300" style={{ width: `${progressPercent}%` }} />
+                                    </div>
+                                </div>
+
+                                {activeQuestion ? (
+                                    <div className={`rounded-xl border p-5 transition ${questionAlert ? "border-red-300 bg-red-50/40" : "border-slate-200 bg-white"}`}>
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <span className="text-xs font-black uppercase tracking-wide text-[#006b2e]">Pregunta {activeQuestionIndex + 1} de {totalQuestions}</span>
+                                            <span className={`rounded-full px-3 py-1 text-[11px] font-black ${isQuestionAnswered(activeQuestion, answers[activeQuestion.id]) ? "bg-green-50 text-[#006b2e]" : "bg-slate-100 text-slate-500"}`}>
+                                                {isQuestionAnswered(activeQuestion, answers[activeQuestion.id]) ? "Respondida" : "Pendiente"}
+                                            </span>
+                                        </div>
+                                        <p className="mt-4 text-base font-black leading-6 text-[#14233b]">{activeQuestion.texto}</p>
+                                        <QuestionAnswer
+                                            pregunta={activeQuestion}
+                                            value={answers[activeQuestion.id] ?? {}}
+                                            onChange={(value) => updateAnswer(activeQuestion, value)}
+                                        />
+                                        {questionAlert ? (
+                                            <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm font-bold text-red-700">
+                                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{questionAlert}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <button type="button" disabled={activeQuestionIndex === 0} onClick={goToPreviousQuestion} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35">
+                                        <ChevronLeft className="h-4 w-4" />Anterior
+                                    </button>
+                                    {activeQuestionIndex < totalQuestions - 1 ? (
+                                        <button type="button" onClick={goToNextQuestion} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#006b2e] px-5 text-sm font-black text-white shadow-lg shadow-green-900/15 hover:bg-[#0b8f3a]">
+                                            Siguiente<ChevronRight className="h-4 w-4" />
+                                        </button>
                                     ) : (
-                                        <FileCheck2 className="h-4 w-4" />
+                                        <button type="submit" disabled={isSubmitting} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#006b2e] px-5 text-sm font-black text-white shadow-lg shadow-green-900/15 hover:bg-[#0b8f3a] disabled:cursor-not-allowed disabled:opacity-60">
+                                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}
+                                            Enviar evaluación
+                                        </button>
                                     )}
-                                    Enviar evaluación
-                                </button>
+                                </div>
                             </form>
 
                             {resultado ? (
@@ -1143,6 +1222,118 @@ export default function FormacionPage() {
                     )}
                 </div>
             </section>
+        </div>
+    );
+}
+
+type MaterialViewerConfig = {
+    kind: "iframe" | "video" | "audio" | "blocked";
+    url: string;
+};
+
+function getYouTubeEmbedUrl(value: string) {
+    try {
+        const url = new URL(value);
+        let id = "";
+        if (url.hostname === "youtu.be") id = url.pathname.split("/").filter(Boolean)[0] ?? "";
+        else if (url.hostname.endsWith("youtube.com")) {
+            id = url.searchParams.get("v") ?? "";
+            if (!id) {
+                const parts = url.pathname.split("/").filter(Boolean);
+                if (["embed", "shorts", "live"].includes(parts[0])) id = parts[1] ?? "";
+            }
+        }
+        return /^[a-zA-Z0-9_-]{6,}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+    } catch {
+        return null;
+    }
+}
+
+function getGooglePreviewUrl(value: string) {
+    try {
+        const url = new URL(value);
+        if (!url.hostname.endsWith("google.com")) return null;
+        const match = url.pathname.match(/^\/(document|presentation|spreadsheets)\/d\/([^/]+)/);
+        if (match) {
+            const product = match[1];
+            const id = match[2];
+            return product === "presentation"
+                ? `https://docs.google.com/presentation/d/${id}/embed?start=false&loop=false`
+                : `https://docs.google.com/${product}/d/${id}/preview`;
+        }
+        const driveFile = url.pathname.match(/^\/file\/d\/([^/]+)/);
+        return driveFile ? `https://drive.google.com/file/d/${driveFile[1]}/preview` : null;
+    } catch {
+        return null;
+    }
+}
+
+function getMaterialViewerConfig(material: FormacionMaterial): MaterialViewerConfig {
+    const rawUrl = material.url.trim();
+    const normalizedType = material.tipo.trim().toLowerCase();
+    const lowerUrl = rawUrl.toLowerCase().split("?")[0].split("#")[0];
+
+    if (!rawUrl.startsWith("https://") && !rawUrl.startsWith("/")) {
+        return { kind: "blocked", url: rawUrl };
+    }
+
+    const youtube = getYouTubeEmbedUrl(rawUrl);
+    if (youtube) return { kind: "iframe", url: youtube };
+
+    const googlePreview = getGooglePreviewUrl(rawUrl);
+    if (googlePreview) return { kind: "iframe", url: googlePreview };
+
+    const vimeoMatch = rawUrl.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+    if (vimeoMatch) return { kind: "iframe", url: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+
+    if (normalizedType === "video" || /\.(mp4|webm|ogg|mov)$/.test(lowerUrl)) {
+        return { kind: "video", url: rawUrl };
+    }
+    if (normalizedType === "audio" || /\.(mp3|wav|m4a|aac|oga)$/.test(lowerUrl)) {
+        return { kind: "audio", url: rawUrl };
+    }
+    if (normalizedType === "pdf" || lowerUrl.endsWith(".pdf")) {
+        return { kind: "iframe", url: `${rawUrl}${rawUrl.includes("#") ? "&" : "#"}toolbar=1&navpanes=0` };
+    }
+    if (["word", "powerpoint", "documento", "presentación"].includes(normalizedType) || /\.(doc|docx|ppt|pptx|xls|xlsx)$/.test(lowerUrl)) {
+        return { kind: "iframe", url: `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(rawUrl)}` };
+    }
+
+    return { kind: "iframe", url: rawUrl };
+}
+
+function MaterialViewer({ material }: { material: FormacionMaterial }) {
+    const viewer = getMaterialViewerConfig(material);
+
+    return (
+        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006b2e]"><Link2 className="h-4 w-4" /></span>
+                <span className="min-w-0"><span className="block truncate text-sm font-black text-[#14233b]">{material.titulo}</span><span className="text-xs font-bold text-slate-500">{material.tipo}</span></span>
+            </div>
+            <div className="flex aspect-video min-h-64 w-full items-center justify-center bg-[#111827] sm:min-h-96">
+                {viewer.kind === "blocked" ? (
+                    <div role="alert" className="mx-5 max-w-lg rounded-xl bg-white p-5 text-center">
+                        <AlertCircle className="mx-auto h-7 w-7 text-yellow-600" />
+                        <p className="mt-3 text-sm font-black text-[#14233b]">Este material no puede mostrarse de forma segura</p>
+                        <p className="mt-2 text-xs leading-5 text-slate-500">La dirección del material debe comenzar por HTTPS para poder visualizarla dentro de SIGETIC.</p>
+                    </div>
+                ) : viewer.kind === "video" ? (
+                    <video key={viewer.url} src={viewer.url} controls preload="metadata" className="h-full max-h-[42rem] w-full bg-black object-contain" />
+                ) : viewer.kind === "audio" ? (
+                    <div className="w-full max-w-xl px-6"><audio key={viewer.url} src={viewer.url} controls preload="metadata" className="w-full" /></div>
+                ) : (
+                    <iframe
+                        key={viewer.url}
+                        src={viewer.url}
+                        title={`Material: ${material.titulo}`}
+                        className="h-full min-h-64 w-full border-0 bg-white sm:min-h-96"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                    />
+                )}
+            </div>
         </div>
     );
 }
