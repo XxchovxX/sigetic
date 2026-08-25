@@ -28,6 +28,12 @@ const consumableRoles = [
     ROLES.financialSecretary,
     ROLES.safAssistant,
 ];
+const trainingManagementRoles = [
+    ROLES.admin,
+    ROLES.ticAdmin,
+    ROLES.ticTechnician,
+    ROLES.systemsAssistant,
+];
 
 export type PermissionMenuItem = {
     title: string;
@@ -50,6 +56,10 @@ export function canManageTechnicalAssets(user: AuthUser | null) {
 
 export function canManageConsumibles(user: AuthUser | null) {
     return hasRole(user, consumableRoles);
+}
+
+export function canManageFormacion(user: AuthUser | null) {
+    return hasRole(user, trainingManagementRoles);
 }
 
 export function canViewAllTickets(user: AuthUser | null) {
@@ -138,6 +148,10 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
     }
 
     if (pathname.startsWith("/tickets")) {
+        return hasRole(user, allRoles);
+    }
+
+    if (pathname.startsWith("/formacion")) {
         return hasRole(user, allRoles);
     }
 

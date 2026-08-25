@@ -15,6 +15,7 @@ using SIGETIC.Application.Tickets;
 using SIGETIC.Application.Analitica;
 using SIGETIC.Application.Auditoria;
 using SIGETIC.Application.ProgramacionMantenimientos;
+using SIGETIC.Application.Formacion;
 
 namespace SIGETIC.Infrastructure;
 
@@ -46,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<IAnaliticaService, AnaliticaService>();
         services.AddScoped<IAuditoriaService, AuditoriaService>();
         services.AddScoped<IProgramacionMantenimientoService, ProgramacionMantenimientoService>();
+        services.AddScoped<IFormacionService, FormacionService>();
 
         return services;
     }

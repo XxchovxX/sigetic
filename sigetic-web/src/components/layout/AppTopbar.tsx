@@ -56,6 +56,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
         title: "Nuevo ticket",
         subtitle: "Solicitud de soporte TIC",
     },
+    "/formacion": {
+        title: "Formación",
+        subtitle: "Capacitaciones institucionales",
+    },
     "/ayuda": {
         title: "Ayuda",
         subtitle: "Preguntas frecuentes y orientación",
@@ -130,6 +134,12 @@ const searchableItems = [
         keywords: "nuevo ticket crear solicitud soporte",
     },
     {
+        title: "Formación",
+        description: "Cursos, enlaces, evaluaciones y certificados",
+        href: "/formacion",
+        keywords: "capacitacion formacion curso certificado evaluacion youtube",
+    },
+    {
         title: "Reportes",
         description: "Exportaciones e informes institucionales",
         href: "/reportes",
@@ -170,6 +180,11 @@ const notificationItems = [
         title: "Mantenimientos preventivos",
         description: "Revisar agenda y enviar recordatorios al tecnico.",
         href: "/programacion",
+    },
+    {
+        title: "Formación institucional",
+        description: "Revisar cursos disponibles y certificados aprobados.",
+        href: "/formacion",
     },
     {
         title: "Analítica institucional",

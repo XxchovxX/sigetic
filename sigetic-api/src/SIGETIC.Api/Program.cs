@@ -123,6 +123,25 @@ builder.Services.AddAuthorization(options =>
         "Secretario de Despacho",
         "Consulta / Control Interno"
     ];
+    string[] formacion =
+    [
+        "Administrador",
+        "Administrador TIC",
+        "Tecnico TIC",
+        "Auxiliar de Sistemas",
+        "Secretario Administrativo Financiero",
+        "Auxiliar Administrativo SAF",
+        "Funcionario",
+        "Secretario de Despacho",
+        "Consulta / Control Interno"
+    ];
+    string[] formacionGestion =
+    [
+        "Administrador",
+        "Administrador TIC",
+        "Tecnico TIC",
+        "Auxiliar de Sistemas"
+    ];
 
     options.AddPolicy("Administracion", policy => policy.RequireRole(admin));
     options.AddPolicy("TecnicoLectura", policy => policy.RequireRole(technicalRead));
@@ -132,6 +151,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("ReportesAnalitica", policy => policy.RequireRole(reports));
     options.AddPolicy("MesaAyuda", policy => policy.RequireRole(tickets));
     options.AddPolicy("Auditoria", policy => policy.RequireRole(audit));
+    options.AddPolicy("Formacion", policy => policy.RequireRole(formacion));
+    options.AddPolicy("FormacionGestion", policy => policy.RequireRole(formacionGestion));
 });
 
 var app = builder.Build();
@@ -171,6 +192,7 @@ app.MapGet("/", () =>
             "/api/consumibles",
             "/api/tickets",
             "/api/programacion-mantenimientos",
+            "/api/formacion",
             "/api/analitica",
             "/api/auditoria",
             "/api/dashboard/resumen"
@@ -196,6 +218,7 @@ app.MapImpresoraEndpoints();
 app.MapConsumibleEndpoints();
 app.MapTicketEndpoints();
 app.MapProgramacionMantenimientoEndpoints();
+app.MapFormacionEndpoints();
 app.MapAnaliticaEndpoints();
 app.MapDashboardEndpoints();
 app.MapAuditoriaEndpoints();

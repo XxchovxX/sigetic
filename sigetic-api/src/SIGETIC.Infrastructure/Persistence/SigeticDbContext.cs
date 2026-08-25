@@ -39,6 +39,12 @@ public sealed class SigeticDbContext : DbContext
     public DbSet<TicketMesaAyuda> TicketsMesaAyuda => Set<TicketMesaAyuda>();
     public DbSet<TicketMesaAyudaHistorial> TicketsMesaAyudaHistorial => Set<TicketMesaAyudaHistorial>();
     public DbSet<ProgramacionMantenimiento> ProgramacionesMantenimiento => Set<ProgramacionMantenimiento>();
+    public DbSet<FormacionCurso> FormacionCursos => Set<FormacionCurso>();
+    public DbSet<FormacionMaterial> FormacionMateriales => Set<FormacionMaterial>();
+    public DbSet<FormacionPregunta> FormacionPreguntas => Set<FormacionPregunta>();
+    public DbSet<FormacionOpcion> FormacionOpciones => Set<FormacionOpcion>();
+    public DbSet<FormacionIntento> FormacionIntentos => Set<FormacionIntento>();
+    public DbSet<FormacionRespuesta> FormacionRespuestas => Set<FormacionRespuesta>();
     public DbSet<AuditoriaRegistro> AuditoriaRegistros => Set<AuditoriaRegistro>();
 
     public override Task<int> SaveChangesAsync(
@@ -61,6 +67,7 @@ public sealed class SigeticDbContext : DbContext
         ConfigureTicketsMesaAyuda(modelBuilder);
         ConfigureTicketsMesaAyudaHistorial(modelBuilder);
         ConfigureProgramacionesMantenimiento(modelBuilder);
+        ConfigureFormacion(modelBuilder);
         ConfigureAuditoriaRegistros(modelBuilder);
 
         ConfigureRoles(modelBuilder);
@@ -138,6 +145,8 @@ public sealed class SigeticDbContext : DbContext
             nameof(ProgramacionMantenimiento) => "Programador de mantenimientos",
             nameof(Consumible) or nameof(MovimientoConsumible) => "Consumibles",
             nameof(TicketMesaAyuda) or nameof(TicketMesaAyudaHistorial) => "Mesa de ayuda",
+            nameof(FormacionCurso) or nameof(FormacionMaterial) or nameof(FormacionPregunta) or nameof(FormacionOpcion)
+                or nameof(FormacionIntento) or nameof(FormacionRespuesta) => "Formacion",
             nameof(Usuario) or nameof(Rol) or nameof(Permiso) or nameof(RolPermiso) => "Configuración",
             nameof(Dependencia) => "Dependencias",
             nameof(Funcionario) => "Funcionarios",
@@ -734,6 +743,288 @@ public sealed class SigeticDbContext : DbContext
             entity.HasIndex(e => e.Estado);
             entity.HasIndex(e => e.TipoActivo);
             entity.HasIndex(e => e.CorreoTecnico);
+        });
+    }
+
+    private static void ConfigureFormacion(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FormacionCurso>(entity =>
+        {
+            entity.ToTable("formacion_cursos");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.Titulo)
+                .HasColumnName("titulo")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.Descripcion)
+                .HasColumnName("descripcion")
+                .HasMaxLength(1200)
+                .IsRequired();
+
+            entity.Property(e => e.Categoria)
+                .HasColumnName("categoria")
+                .HasMaxLength(120)
+                .IsRequired();
+
+            entity.Property(e => e.DirigidoA)
+                .HasColumnName("dirigido_a")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.DuracionMinutos)
+                .HasColumnName("duracion_minutos")
+                .IsRequired();
+
+            entity.Property(e => e.PuntajeMinimo)
+                .HasColumnName("puntaje_minimo")
+                .IsRequired();
+
+            entity.Property(e => e.Activo)
+                .HasColumnName("activo")
+                .IsRequired();
+
+            entity.Property(e => e.FechaCreacionUtc)
+                .HasColumnName("fecha_creacion_utc")
+                .IsRequired();
+
+            entity.Property(e => e.FechaActualizacionUtc)
+                .HasColumnName("fecha_actualizacion_utc");
+
+            entity.HasMany(e => e.Materiales)
+                .WithOne(e => e.Curso)
+                .HasForeignKey(e => e.CursoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.Materiales)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            entity.HasMany(e => e.Preguntas)
+                .WithOne(e => e.Curso)
+                .HasForeignKey(e => e.CursoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.Preguntas)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            entity.HasMany(e => e.Intentos)
+                .WithOne(e => e.Curso)
+                .HasForeignKey(e => e.CursoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Navigation(e => e.Intentos)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            entity.HasIndex(e => e.Categoria);
+            entity.HasIndex(e => e.Activo);
+        });
+
+        modelBuilder.Entity<FormacionMaterial>(entity =>
+        {
+            entity.ToTable("formacion_materiales");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.CursoId)
+                .HasColumnName("curso_id")
+                .IsRequired();
+
+            entity.Property(e => e.Titulo)
+                .HasColumnName("titulo")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.Tipo)
+                .HasColumnName("tipo")
+                .HasMaxLength(80)
+                .IsRequired();
+
+            entity.Property(e => e.Url)
+                .HasColumnName("url")
+                .HasMaxLength(800)
+                .IsRequired();
+
+            entity.Property(e => e.Orden)
+                .HasColumnName("orden")
+                .IsRequired();
+
+            entity.HasIndex(e => e.CursoId);
+        });
+
+        modelBuilder.Entity<FormacionPregunta>(entity =>
+        {
+            entity.ToTable("formacion_preguntas");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.CursoId)
+                .HasColumnName("curso_id")
+                .IsRequired();
+
+            entity.Property(e => e.Texto)
+                .HasColumnName("texto")
+                .HasMaxLength(1000)
+                .IsRequired();
+
+            entity.Property(e => e.Explicacion)
+                .HasColumnName("explicacion")
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.Orden)
+                .HasColumnName("orden")
+                .IsRequired();
+
+            entity.HasMany(e => e.Opciones)
+                .WithOne(e => e.Pregunta)
+                .HasForeignKey(e => e.PreguntaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.Opciones)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            entity.HasIndex(e => e.CursoId);
+        });
+
+        modelBuilder.Entity<FormacionOpcion>(entity =>
+        {
+            entity.ToTable("formacion_opciones");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.PreguntaId)
+                .HasColumnName("pregunta_id")
+                .IsRequired();
+
+            entity.Property(e => e.Texto)
+                .HasColumnName("texto")
+                .HasMaxLength(600)
+                .IsRequired();
+
+            entity.Property(e => e.EsCorrecta)
+                .HasColumnName("es_correcta")
+                .IsRequired();
+
+            entity.Property(e => e.Orden)
+                .HasColumnName("orden")
+                .IsRequired();
+
+            entity.HasIndex(e => e.PreguntaId);
+        });
+
+        modelBuilder.Entity<FormacionIntento>(entity =>
+        {
+            entity.ToTable("formacion_intentos");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.CursoId)
+                .HasColumnName("curso_id")
+                .IsRequired();
+
+            entity.Property(e => e.UsuarioId)
+                .HasColumnName("usuario_id");
+
+            entity.Property(e => e.ParticipanteNombre)
+                .HasColumnName("participante_nombre")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.ParticipanteCorreo)
+                .HasColumnName("participante_correo")
+                .HasMaxLength(180)
+                .IsRequired();
+
+            entity.Property(e => e.TotalPreguntas)
+                .HasColumnName("total_preguntas")
+                .IsRequired();
+
+            entity.Property(e => e.RespuestasCorrectas)
+                .HasColumnName("respuestas_correctas")
+                .IsRequired();
+
+            entity.Property(e => e.Puntaje)
+                .HasColumnName("puntaje")
+                .IsRequired();
+
+            entity.Property(e => e.Aprobado)
+                .HasColumnName("aprobado")
+                .IsRequired();
+
+            entity.Property(e => e.CodigoCertificado)
+                .HasColumnName("codigo_certificado")
+                .HasMaxLength(80);
+
+            entity.Property(e => e.FechaPresentacionUtc)
+                .HasColumnName("fecha_presentacion_utc")
+                .IsRequired();
+
+            entity.HasMany(e => e.Respuestas)
+                .WithOne(e => e.Intento)
+                .HasForeignKey(e => e.IntentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.Respuestas)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            entity.HasIndex(e => e.CursoId);
+            entity.HasIndex(e => e.UsuarioId);
+            entity.HasIndex(e => e.CodigoCertificado)
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<FormacionRespuesta>(entity =>
+        {
+            entity.ToTable("formacion_respuestas");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.IntentoId)
+                .HasColumnName("intento_id")
+                .IsRequired();
+
+            entity.Property(e => e.PreguntaId)
+                .HasColumnName("pregunta_id")
+                .IsRequired();
+
+            entity.Property(e => e.OpcionId)
+                .HasColumnName("opcion_id")
+                .IsRequired();
+
+            entity.Property(e => e.Correcta)
+                .HasColumnName("correcta")
+                .IsRequired();
+
+            entity.HasOne(e => e.Pregunta)
+                .WithMany()
+                .HasForeignKey(e => e.PreguntaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Opcion)
+                .WithMany()
+                .HasForeignKey(e => e.OpcionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.IntentoId);
         });
     }
 
