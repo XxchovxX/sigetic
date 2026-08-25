@@ -9,6 +9,7 @@ public sealed class FormacionOpcion
     public FormacionOpcion(
         Guid preguntaId,
         string texto,
+        string? textoRelacionado,
         bool esCorrecta,
         int orden)
     {
@@ -18,6 +19,9 @@ public sealed class FormacionOpcion
         Id = Guid.NewGuid();
         PreguntaId = preguntaId;
         Texto = texto.Trim();
+        TextoRelacionado = string.IsNullOrWhiteSpace(textoRelacionado)
+            ? null
+            : textoRelacionado.Trim();
         EsCorrecta = esCorrecta;
         Orden = Math.Max(1, orden);
     }
@@ -25,6 +29,7 @@ public sealed class FormacionOpcion
     public Guid Id { get; private set; }
     public Guid PreguntaId { get; private set; }
     public string Texto { get; private set; } = string.Empty;
+    public string? TextoRelacionado { get; private set; }
     public bool EsCorrecta { get; private set; }
     public int Orden { get; private set; }
 

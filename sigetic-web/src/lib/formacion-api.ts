@@ -12,12 +12,14 @@ export type FormacionMaterial = {
 export type FormacionOpcion = {
     id: string;
     texto: string;
+    textoRelacionado?: string | null;
     orden: number;
 };
 
 export type FormacionPregunta = {
     id: string;
     texto: string;
+    tipo: TipoPreguntaFormacion;
     explicacion?: string | null;
     orden: number;
     opciones: FormacionOpcion[];
@@ -29,6 +31,7 @@ export type FormacionCurso = {
     descripcion: string;
     categoria: string;
     dirigidoA: string;
+    entidadCertificadora: string;
     duracionMinutos: number;
     puntajeMinimo: number;
     activo: boolean;
@@ -78,6 +81,7 @@ export type FormacionCertificado = {
     participanteCorreo: string;
     categoria: string;
     dirigidoA: string;
+    entidadCertificadora: string;
     duracionMinutos: number;
     puntaje: number;
     puntajeMinimo: number;
@@ -90,6 +94,7 @@ export type CrearCursoFormacionPayload = {
     descripcion: string;
     categoria: string;
     dirigidoA: string;
+    entidadCertificadora: string;
     duracionMinutos: number;
     puntajeMinimo: number;
     activo: boolean;
@@ -103,10 +108,12 @@ export type CrearCursoFormacionPayload = {
     }>;
     preguntas: Array<{
         texto: string;
+        tipo: TipoPreguntaFormacion;
         explicacion?: string | null;
         orden: number;
         opciones: Array<{
             texto: string;
+            textoRelacionado?: string | null;
             esCorrecta: boolean;
             orden: number;
         }>;
@@ -116,9 +123,21 @@ export type CrearCursoFormacionPayload = {
 export type ResponderEvaluacionFormacionPayload = {
     respuestas: Array<{
         preguntaId: string;
-        opcionId: string;
+        opcionId?: string | null;
+        opcionIds?: string[];
+        texto?: string | null;
+        relaciones?: Array<{ itemId: string; relacionId: string }>;
     }>;
 };
+
+export type TipoPreguntaFormacion =
+    | "SeleccionUnica"
+    | "SeleccionMultiple"
+    | "VerdaderoFalso"
+    | "ListaDesplegable"
+    | "RespuestaCorta"
+    | "RespuestaLarga"
+    | "Relacionar";
 
 export type ResultadoFormacion = {
     intentoId: string;
@@ -134,9 +153,10 @@ export type ResultadoFormacion = {
     detalle: Array<{
         preguntaId: string;
         pregunta: string;
-        opcionSeleccionadaId: string;
-        opcionSeleccionada: string;
-        correcta: boolean;
+        tipo: TipoPreguntaFormacion;
+        opcionSeleccionadaId?: string | null;
+        respuesta: string;
+        correcta?: boolean | null;
         explicacion?: string | null;
     }>;
 };

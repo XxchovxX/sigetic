@@ -789,6 +789,12 @@ public sealed class SigeticDbContext : DbContext
                 .HasMaxLength(180)
                 .IsRequired();
 
+            entity.Property(e => e.EntidadCertificadora)
+                .HasColumnName("entidad_certificadora")
+                .HasMaxLength(180)
+                .HasDefaultValue("Secretaría de Planeación")
+                .IsRequired();
+
             entity.Property(e => e.DuracionMinutos)
                 .HasColumnName("duracion_minutos")
                 .IsRequired();
@@ -905,6 +911,14 @@ public sealed class SigeticDbContext : DbContext
                 .HasMaxLength(1000)
                 .IsRequired();
 
+            entity.Property(e => e.Tipo)
+                .HasColumnName("tipo")
+                .HasMaxLength(40)
+                .HasDefaultValue("SeleccionUnica")
+                .IsRequired();
+
+            entity.Ignore(e => e.EsCalificable);
+
             entity.Property(e => e.Explicacion)
                 .HasColumnName("explicacion")
                 .HasMaxLength(1000);
@@ -941,6 +955,10 @@ public sealed class SigeticDbContext : DbContext
                 .HasColumnName("texto")
                 .HasMaxLength(600)
                 .IsRequired();
+
+            entity.Property(e => e.TextoRelacionado)
+                .HasColumnName("texto_relacionado")
+                .HasMaxLength(600);
 
             entity.Property(e => e.EsCorrecta)
                 .HasColumnName("es_correcta")
@@ -1035,12 +1053,18 @@ public sealed class SigeticDbContext : DbContext
                 .IsRequired();
 
             entity.Property(e => e.OpcionId)
-                .HasColumnName("opcion_id")
-                .IsRequired();
+                .HasColumnName("opcion_id");
+
+            entity.Property(e => e.RespuestaTexto)
+                .HasColumnName("respuesta_texto")
+                .HasMaxLength(4000);
+
+            entity.Property(e => e.DatosRespuesta)
+                .HasColumnName("datos_respuesta")
+                .HasColumnType("text");
 
             entity.Property(e => e.Correcta)
-                .HasColumnName("correcta")
-                .IsRequired();
+                .HasColumnName("correcta");
 
             entity.HasOne(e => e.Pregunta)
                 .WithMany()

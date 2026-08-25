@@ -5,6 +5,7 @@ import {
     Award,
     BookOpenCheck,
     CheckCircle2,
+    Download,
     ExternalLink,
     FileCheck2,
     GraduationCap,
@@ -14,6 +15,7 @@ import {
     Save,
     Search,
     ShieldCheck,
+    Trash2,
     UsersRound,
     X,
 } from "lucide-react";
@@ -29,8 +31,11 @@ import {
     type FormacionCertificado,
     type FormacionCurso,
     type FormacionDestinatarios,
+    type FormacionPregunta,
     type ResultadoFormacion,
+    type TipoPreguntaFormacion,
 } from "@/lib/formacion-api";
+import { descargarCertificadoFormacionPdf } from "@/lib/pdf-certificado-formacion";
 
 type MaterialForm = {
     titulo: string;
@@ -40,11 +45,20 @@ type MaterialForm = {
 
 type PreguntaForm = {
     texto: string;
+    tipo: TipoPreguntaFormacion;
     explicacion: string;
     opciones: Array<{
         texto: string;
+        textoRelacionado: string;
         esCorrecta: boolean;
     }>;
+};
+
+type RespuestaForm = {
+    opcionId?: string;
+    opcionIds?: string[];
+    texto?: string;
+    relaciones?: Record<string, string>;
 };
 
 const emptyMaterial: MaterialForm = {
@@ -53,34 +67,72 @@ const emptyMaterial: MaterialForm = {
     url: "",
 };
 
-const emptyPregunta: PreguntaForm = {
-    texto: "",
-    explicacion: "",
-    opciones: [
-        { texto: "", esCorrecta: true },
-        { texto: "", esCorrecta: false },
-    ],
-};
+const questionTypeOptions: Array<{ value: TipoPreguntaFormacion; label: string }> = [
+    { value: "SeleccionUnica", label: "Selección única" },
+    { value: "SeleccionMultiple", label: "Selección múltiple" },
+    { value: "ListaDesplegable", label: "Lista desplegable" },
+    { value: "VerdaderoFalso", label: "Verdadero o falso" },
+    { value: "RespuestaCorta", label: "Respuesta corta" },
+    { value: "RespuestaLarga", label: "Respuesta larga" },
+    { value: "Relacionar", label: "Relacionar columnas" },
+];
+
+function createOptions(tipo: TipoPreguntaFormacion) {
+    if (tipo === "VerdaderoFalso") {
+        return [
+            { texto: "Verdadero", textoRelacionado: "", esCorrecta: true },
+            { texto: "Falso", textoRelacionado: "", esCorrecta: false },
+        ];
+    }
+
+    if (tipo === "RespuestaLarga") return [];
+    if (tipo === "RespuestaCorta") {
+        return [{ texto: "", textoRelacionado: "", esCorrecta: true }];
+    }
+
+    return Array.from({ length: 4 }, (_, index) => ({
+        texto: "",
+        textoRelacionado: "",
+        esCorrecta: tipo === "SeleccionMultiple" ? index < 2 : index === 0,
+    }));
+}
+
+function createQuestion(tipo: TipoPreguntaFormacion = "SeleccionUnica"): PreguntaForm {
+    return {
+        texto: "",
+        tipo,
+        explicacion: "",
+        opciones: createOptions(tipo),
+    };
+}
+
+function minimumOptions(tipo: TipoPreguntaFormacion) {
+    if (tipo === "RespuestaLarga") return 0;
+    if (tipo === "RespuestaCorta") return 1;
+    if (tipo === "VerdaderoFalso" || tipo === "Relacionar") return 2;
+    return 4;
+}
 
 const initialCourseForm = {
     titulo: "",
     descripcion: "",
     categoria: "Inducción institucional",
     dirigidoA: "Funcionarios y contratistas",
+    entidadCertificadora: "Secretaría de Planeación",
     duracionMinutos: 30,
     puntajeMinimo: 80,
     activo: true,
     dependenciaIds: [] as string[],
     usuarioIds: [] as string[],
     materiales: [emptyMaterial],
-    preguntas: [emptyPregunta],
+    preguntas: [createQuestion()],
 };
 
 export default function FormacionPage() {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [cursos, setCursos] = useState<FormacionCurso[]>([]);
     const [selectedCursoId, setSelectedCursoId] = useState("");
-    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [answers, setAnswers] = useState<Record<string, RespuestaForm>>({});
     const [resultado, setResultado] = useState<ResultadoFormacion | null>(null);
     const [certificado, setCertificado] = useState<FormacionCertificado | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
@@ -213,7 +265,7 @@ export default function FormacionPage() {
         }));
     }
 
-    function updatePregunta(index: number, key: keyof PreguntaForm, value: string) {
+    function updatePregunta(index: number, key: "texto" | "explicacion", value: string) {
         setForm((current) => ({
             ...current,
             preguntas: current.preguntas.map((pregunta, preguntaIndex) =>
@@ -225,6 +277,7 @@ export default function FormacionPage() {
     function updateOpcion(
         preguntaIndex: number,
         opcionIndex: number,
+        key: "texto" | "textoRelacionado",
         value: string
     ) {
         setForm((current) => ({
@@ -235,7 +288,7 @@ export default function FormacionPage() {
                         ...pregunta,
                         opciones: pregunta.opciones.map((opcion, currentOpcionIndex) =>
                             currentOpcionIndex === opcionIndex
-                                ? { ...opcion, texto: value }
+                                ? { ...opcion, [key]: value }
                                 : opcion
                         ),
                     }
@@ -253,11 +306,80 @@ export default function FormacionPage() {
                         ...pregunta,
                         opciones: pregunta.opciones.map((opcion, currentOpcionIndex) => ({
                             ...opcion,
-                            esCorrecta: currentOpcionIndex === opcionIndex,
+                            esCorrecta: pregunta.tipo === "SeleccionMultiple"
+                                ? currentOpcionIndex === opcionIndex
+                                    ? !opcion.esCorrecta
+                                    : opcion.esCorrecta
+                                : currentOpcionIndex === opcionIndex,
                         })),
                     }
                     : pregunta
             ),
+        }));
+    }
+
+    function changeQuestionType(preguntaIndex: number, tipo: TipoPreguntaFormacion) {
+        setForm((current) => ({
+            ...current,
+            preguntas: current.preguntas.map((pregunta, index) =>
+                index === preguntaIndex
+                    ? { ...pregunta, tipo, opciones: createOptions(tipo) }
+                    : pregunta
+            ),
+        }));
+    }
+
+    function addQuestionOption(preguntaIndex: number) {
+        setForm((current) => ({
+            ...current,
+            preguntas: current.preguntas.map((pregunta, index) =>
+                index === preguntaIndex
+                    ? {
+                        ...pregunta,
+                        opciones: [
+                            ...pregunta.opciones,
+                            {
+                                texto: "",
+                                textoRelacionado: "",
+                                esCorrecta: pregunta.tipo === "RespuestaCorta",
+                            },
+                        ],
+                    }
+                    : pregunta
+            ),
+        }));
+    }
+
+    function removeQuestionOption(preguntaIndex: number, opcionIndex: number) {
+        setForm((current) => ({
+            ...current,
+            preguntas: current.preguntas.map((pregunta, index) => {
+                if (index !== preguntaIndex || pregunta.opciones.length <= minimumOptions(pregunta.tipo)) return pregunta;
+
+                let opciones = pregunta.opciones.filter((_, optionIndex) => optionIndex !== opcionIndex);
+                if (["SeleccionUnica", "ListaDesplegable"].includes(pregunta.tipo) && !opciones.some((option) => option.esCorrecta)) {
+                    opciones = opciones.map((option, optionIndex) => ({ ...option, esCorrecta: optionIndex === 0 }));
+                }
+                if (pregunta.tipo === "SeleccionMultiple" && opciones.filter((option) => option.esCorrecta).length < 2) {
+                    let remaining = 2 - opciones.filter((option) => option.esCorrecta).length;
+                    opciones = opciones.map((option) => {
+                        if (!option.esCorrecta && remaining > 0) {
+                            remaining--;
+                            return { ...option, esCorrecta: true };
+                        }
+                        return option;
+                    });
+                }
+
+                return { ...pregunta, opciones };
+            }),
+        }));
+    }
+
+    function removeQuestion(preguntaIndex: number) {
+        setForm((current) => ({
+            ...current,
+            preguntas: current.preguntas.filter((_, index) => index !== preguntaIndex),
         }));
     }
 
@@ -276,6 +398,7 @@ export default function FormacionPage() {
             descripcion: form.descripcion.trim(),
             categoria: form.categoria.trim(),
             dirigidoA: form.dirigidoA.trim(),
+            entidadCertificadora: form.entidadCertificadora.trim(),
             duracionMinutos: Number(form.duracionMinutos),
             puntajeMinimo: Number(form.puntajeMinimo),
             activo: form.activo,
@@ -289,10 +412,12 @@ export default function FormacionPage() {
             })),
             preguntas: form.preguntas.map((pregunta, index) => ({
                 texto: pregunta.texto.trim(),
+                tipo: pregunta.tipo,
                 explicacion: pregunta.explicacion.trim() || null,
                 orden: index + 1,
                 opciones: pregunta.opciones.map((opcion, optionIndex) => ({
                     texto: opcion.texto.trim(),
+                    textoRelacionado: opcion.textoRelacionado.trim() || null,
                     esCorrecta: opcion.esCorrecta,
                     orden: optionIndex + 1,
                 })),
@@ -335,9 +460,16 @@ export default function FormacionPage() {
 
         if (!selectedCurso) return;
 
-        const missingAnswer = selectedCurso.preguntas.some(
-            (pregunta) => !answers[pregunta.id]
-        );
+        const missingAnswer = selectedCurso.preguntas.some((pregunta) => {
+            const answer = answers[pregunta.id];
+            if (!answer) return true;
+            if (pregunta.tipo === "SeleccionMultiple") return !answer.opcionIds?.length;
+            if (pregunta.tipo === "RespuestaCorta" || pregunta.tipo === "RespuestaLarga") return !answer.texto?.trim();
+            if (pregunta.tipo === "Relacionar") {
+                return pregunta.opciones.some((opcion) => !answer.relaciones?.[opcion.id]);
+            }
+            return !answer.opcionId;
+        });
 
         if (missingAnswer) {
             setError("Responde todas las preguntas antes de enviar la evaluación.");
@@ -352,7 +484,12 @@ export default function FormacionPage() {
             const result = await responderEvaluacionFormacion(selectedCurso.id, {
                 respuestas: selectedCurso.preguntas.map((pregunta) => ({
                     preguntaId: pregunta.id,
-                    opcionId: answers[pregunta.id],
+                    opcionId: answers[pregunta.id]?.opcionId ?? null,
+                    opcionIds: answers[pregunta.id]?.opcionIds ?? [],
+                    texto: answers[pregunta.id]?.texto ?? null,
+                    relaciones: Object.entries(answers[pregunta.id]?.relaciones ?? {}).map(
+                        ([itemId, relacionId]) => ({ itemId, relacionId })
+                    ),
                 })),
             });
 
@@ -499,6 +636,13 @@ export default function FormacionPage() {
                             onChange={(value) => setForm({ ...form, dirigidoA: value })}
                             required
                         />
+                        <Input
+                            label="Dependencia que certifica"
+                            value={form.entidadCertificadora}
+                            onChange={(value) => setForm({ ...form, entidadCertificadora: value })}
+                            placeholder="Ej: Secretaría de Planeación"
+                            required
+                        />
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Input
                                 label="Duración estimada"
@@ -642,15 +786,7 @@ export default function FormacionPage() {
                                 onClick={() =>
                                     setForm((current) => ({
                                         ...current,
-                                        preguntas: [
-                                            ...current.preguntas,
-                                            {
-                                                ...emptyPregunta,
-                                                opciones: emptyPregunta.opciones.map((opcion) => ({
-                                                    ...opcion,
-                                                })),
-                                            },
-                                        ],
+                                        preguntas: [...current.preguntas, createQuestion()],
                                     }))
                                 }
                                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-green-50 hover:text-[#006b2e]"
@@ -663,8 +799,31 @@ export default function FormacionPage() {
                         {form.preguntas.map((pregunta, preguntaIndex) => (
                             <div
                                 key={`pregunta-${preguntaIndex}`}
-                                className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                                className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4"
                             >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                                    <label className="block min-w-0 flex-1 sm:max-w-sm">
+                                        <span className="text-xs font-black uppercase tracking-wide text-slate-600">Tipo de pregunta</span>
+                                        <select
+                                            value={pregunta.tipo}
+                                            onChange={(event) => changeQuestionType(preguntaIndex, event.target.value as TipoPreguntaFormacion)}
+                                            className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-[#0b8f3a]"
+                                        >
+                                            {questionTypeOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        disabled={form.preguntas.length === 1}
+                                        onClick={() => removeQuestion(preguntaIndex)}
+                                        title="Eliminar pregunta"
+                                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-100 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-30"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
                                 <Input
                                     label={`Pregunta ${preguntaIndex + 1}`}
                                     value={pregunta.texto}
@@ -681,44 +840,73 @@ export default function FormacionPage() {
                                     }
                                     placeholder="Explica brevemente la respuesta correcta."
                                 />
+
+                                {pregunta.tipo === "RespuestaLarga" ? (
+                                    <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                                        La persona escribirá una respuesta extensa obligatoria. Se registra como evidencia, pero no altera el puntaje automático.
+                                    </div>
+                                ) : null}
+
                                 <div className="grid gap-3 md:grid-cols-2">
                                     {pregunta.opciones.map((opcion, opcionIndex) => (
-                                        <label
+                                        <div
                                             key={`opcion-${preguntaIndex}-${opcionIndex}`}
-                                            className="rounded-2xl border border-slate-200 bg-white p-3"
+                                            className="rounded-xl border border-slate-200 bg-white p-3"
                                         >
-                                            <span className="text-xs font-black uppercase tracking-wide text-slate-600">
-                                                Opción {opcionIndex + 1}
-                                            </span>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-black uppercase tracking-wide text-slate-600">
+                                                    {pregunta.tipo === "Relacionar" ? `Par ${opcionIndex + 1}` : pregunta.tipo === "RespuestaCorta" ? `Respuesta aceptada ${opcionIndex + 1}` : `Opción ${opcionIndex + 1}`}
+                                                </span>
+                                                {pregunta.tipo !== "VerdaderoFalso" && (
+                                                    <button type="button" disabled={pregunta.opciones.length <= minimumOptions(pregunta.tipo)} onClick={() => removeQuestionOption(preguntaIndex, opcionIndex)} title="Eliminar opción" className="text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-25">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                            </div>
                                             <input
                                                 value={opcion.texto}
                                                 onChange={(event) =>
                                                     updateOpcion(
                                                         preguntaIndex,
                                                         opcionIndex,
+                                                        "texto",
                                                         event.target.value
                                                     )
                                                 }
+                                                readOnly={pregunta.tipo === "VerdaderoFalso"}
                                                 required
+                                                placeholder={pregunta.tipo === "Relacionar" ? "Elemento de la izquierda" : pregunta.tipo === "RespuestaCorta" ? "Texto que se aceptará como correcto" : "Escribe la opción"}
                                                 className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10"
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setCorrectOption(preguntaIndex, opcionIndex)
-                                                }
-                                                className={`mt-3 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black ${
-                                                    opcion.esCorrecta
-                                                        ? "bg-green-50 text-[#006b2e]"
-                                                        : "bg-slate-100 text-slate-500"
-                                                }`}
-                                            >
-                                                <CheckCircle2 className="h-4 w-4" />
-                                                Correcta
-                                            </button>
-                                        </label>
+                                            {pregunta.tipo === "Relacionar" ? (
+                                                <input
+                                                    value={opcion.textoRelacionado}
+                                                    onChange={(event) => updateOpcion(preguntaIndex, opcionIndex, "textoRelacionado", event.target.value)}
+                                                    required
+                                                    placeholder="Correspondencia de la derecha"
+                                                    className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10"
+                                                />
+                                            ) : null}
+                                            {!["RespuestaCorta", "Relacionar"].includes(pregunta.tipo) ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCorrectOption(preguntaIndex, opcionIndex)}
+                                                    className={`mt-3 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black ${opcion.esCorrecta ? "bg-green-50 text-[#006b2e]" : "bg-slate-100 text-slate-500"}`}
+                                                >
+                                                    <CheckCircle2 className="h-4 w-4" />
+                                                    {pregunta.tipo === "SeleccionMultiple" ? "Respuesta correcta" : "Correcta"}
+                                                </button>
+                                            ) : null}
+                                        </div>
                                     ))}
                                 </div>
+
+                                {!["VerdaderoFalso", "RespuestaLarga"].includes(pregunta.tipo) ? (
+                                    <button type="button" onClick={() => addQuestionOption(preguntaIndex)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 hover:bg-green-50 hover:text-[#006b2e]">
+                                        <Plus className="h-4 w-4" />
+                                        {pregunta.tipo === "Relacionar" ? "Agregar par" : pregunta.tipo === "RespuestaCorta" ? "Agregar respuesta aceptada" : "Agregar opción"}
+                                    </button>
+                                ) : null}
                             </div>
                         ))}
                     </div>
@@ -893,33 +1081,11 @@ export default function FormacionPage() {
                                         <p className="text-sm font-black text-[#14233b]">
                                             {index + 1}. {pregunta.texto}
                                         </p>
-                                        <div className="mt-3 grid gap-2">
-                                            {pregunta.opciones.map((opcion) => (
-                                                <label
-                                                    key={opcion.id}
-                                                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
-                                                        answers[pregunta.id] === opcion.id
-                                                            ? "border-green-200 bg-green-50 text-[#006b2e]"
-                                                            : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                    }`}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name={pregunta.id}
-                                                        value={opcion.id}
-                                                        checked={answers[pregunta.id] === opcion.id}
-                                                        onChange={() =>
-                                                            setAnswers((current) => ({
-                                                                ...current,
-                                                                [pregunta.id]: opcion.id,
-                                                            }))
-                                                        }
-                                                        className="h-4 w-4 accent-[#006b2e]"
-                                                    />
-                                                    {opcion.texto}
-                                                </label>
-                                            ))}
-                                        </div>
+                                        <QuestionAnswer
+                                            pregunta={pregunta}
+                                            value={answers[pregunta.id] ?? {}}
+                                            onChange={(value) => setAnswers((current) => ({ ...current, [pregunta.id]: value }))}
+                                        />
                                     </div>
                                 ))}
 
@@ -975,6 +1141,113 @@ export default function FormacionPage() {
                     )}
                 </div>
             </section>
+        </div>
+    );
+}
+
+function QuestionAnswer({
+    pregunta,
+    value,
+    onChange,
+}: {
+    pregunta: FormacionPregunta;
+    value: RespuestaForm;
+    onChange: (value: RespuestaForm) => void;
+}) {
+    if (pregunta.tipo === "RespuestaCorta" || pregunta.tipo === "RespuestaLarga") {
+        const sharedClass = "mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-[#0b8f3a] focus:ring-4 focus:ring-green-700/10";
+        return pregunta.tipo === "RespuestaLarga" ? (
+            <textarea
+                value={value.texto ?? ""}
+                onChange={(event) => onChange({ texto: event.target.value })}
+                rows={5}
+                placeholder="Escribe tu respuesta completa..."
+                className={sharedClass}
+            />
+        ) : (
+            <input
+                value={value.texto ?? ""}
+                onChange={(event) => onChange({ texto: event.target.value })}
+                placeholder="Escribe una respuesta breve..."
+                className={sharedClass}
+            />
+        );
+    }
+
+    if (pregunta.tipo === "ListaDesplegable") {
+        return (
+            <select
+                value={value.opcionId ?? ""}
+                onChange={(event) => onChange({ opcionId: event.target.value })}
+                className="mt-3 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none focus:border-[#0b8f3a]"
+            >
+                <option value="">Selecciona una respuesta</option>
+                {pregunta.opciones.map((opcion) => <option key={opcion.id} value={opcion.id}>{opcion.texto}</option>)}
+            </select>
+        );
+    }
+
+    if (pregunta.tipo === "Relacionar") {
+        return (
+            <div className="mt-3 space-y-2">
+                {pregunta.opciones.map((item) => (
+                    <div key={item.id} className="grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_1fr] sm:items-center">
+                        <span className="text-sm font-bold text-[#14233b]">{item.texto}</span>
+                        <select
+                            value={value.relaciones?.[item.id] ?? ""}
+                            onChange={(event) => onChange({
+                                relaciones: { ...(value.relaciones ?? {}), [item.id]: event.target.value },
+                            })}
+                            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#0b8f3a]"
+                        >
+                            <option value="">Selecciona la relación</option>
+                            {pregunta.opciones.map((option) => (
+                                <option key={option.id} value={option.id}>{option.textoRelacionado}</option>
+                            ))}
+                        </select>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    if (pregunta.tipo === "SeleccionMultiple") {
+        const selected = value.opcionIds ?? [];
+        return (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {pregunta.opciones.map((opcion) => {
+                    const checked = selected.includes(opcion.id);
+                    return (
+                        <label key={opcion.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${checked ? "border-green-200 bg-green-50 text-[#006b2e]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                            <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => onChange({ opcionIds: checked ? selected.filter((id) => id !== opcion.id) : [...selected, opcion.id] })}
+                                className="h-4 w-4 accent-[#006b2e]"
+                            />
+                            {opcion.texto}
+                        </label>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {pregunta.opciones.map((opcion) => (
+                <label key={opcion.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${value.opcionId === opcion.id ? "border-green-200 bg-green-50 text-[#006b2e]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                    <input
+                        type="radio"
+                        name={pregunta.id}
+                        value={opcion.id}
+                        checked={value.opcionId === opcion.id}
+                        onChange={() => onChange({ opcionId: opcion.id })}
+                        className="h-4 w-4 accent-[#006b2e]"
+                    />
+                    {opcion.texto}
+                </label>
+            ))}
         </div>
     );
 }
@@ -1084,49 +1357,50 @@ function Certificate({
                 </div>
                 <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={() => void descargarCertificadoFormacionPdf(certificado)}
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-600 transition hover:bg-green-50 hover:text-[#006b2e]"
                 >
-                    <FileCheck2 className="h-4 w-4" />
-                    Imprimir
+                    <Download className="h-4 w-4" />
+                    Descargar PDF
                 </button>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-slate-200 p-6 text-center">
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-[#006b2e]">
-                    Alcaldía Municipal de San Carlos de Guaroa
-                </p>
-                <h4 className="mt-4 text-2xl font-black text-[#14233b]">
-                    Constancia de aprobación
-                </h4>
-                <p className="mt-5 text-sm leading-6 text-slate-600">
-                    Se deja constancia de que{" "}
-                    <strong>{certificado.participanteNombre || user?.nombreCompleto}</strong>{" "}
-                    aprobó la capacitación <strong>{certificado.cursoTitulo}</strong> con
-                    puntaje de <strong>{Math.round(certificado.puntaje)}%</strong>.
-                </p>
-                <div className="mt-5 grid gap-3 text-left md:grid-cols-3">
-                    <InfoPill
-                        label="Fecha"
-                        value={formatDateTime(certificado.fechaPresentacionUtc)}
-                    />
-                    <InfoPill label="Categoría" value={certificado.categoria} />
-                    <InfoPill
-                        label="Duración"
-                        value={`${certificado.duracionMinutos} minutos`}
-                    />
+            <div className="relative mx-auto mt-5 aspect-[1.55/1] w-full max-w-3xl overflow-hidden rounded-lg border-2 border-[#006b2e] bg-[#fbfdfb] p-4 shadow-sm sm:p-8">
+                <div className="absolute inset-2 rounded border border-[#f5c400]" />
+                <div className="relative flex h-full flex-col items-center justify-center text-center">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#14233b] sm:text-xs">
+                        Alcaldía Municipal de San Carlos de Guaroa
+                    </p>
+                    <p className="mt-1 text-[9px] font-black uppercase text-[#006b2e] sm:text-[11px]">
+                        {certificado.entidadCertificadora}
+                    </p>
+                    <h4 className="mt-4 text-xl font-black text-[#14233b] sm:text-3xl">
+                        Constancia de formación
+                    </h4>
+                    <p className="mt-3 text-xs text-slate-500">certifica que</p>
+                    <p className="mt-1 text-lg font-black text-[#006b2e] sm:text-2xl">
+                        {certificado.participanteNombre || user?.nombreCompleto}
+                    </p>
+                    <p className="mt-3 max-w-xl text-xs leading-5 text-slate-600 sm:text-sm">
+                        realizó y aprobó <strong>{certificado.cursoTitulo}</strong>, con una duración de <strong>{formatDuration(certificado.duracionMinutos)}</strong> y resultado de <strong>{Math.round(certificado.puntaje)}%</strong>.
+                    </p>
+                    <div className="mt-4 grid w-full max-w-xl grid-cols-3 gap-2 border-t border-slate-200 pt-3 text-[9px] font-bold text-slate-500 sm:text-xs">
+                        <span>{new Date(certificado.fechaPresentacionUtc).toLocaleDateString("es-CO")}</span>
+                        <span>{certificado.categoria}</span>
+                        <span>{certificado.codigoCertificado}</span>
+                    </div>
+                    <p className="mt-3 text-[8px] font-bold text-slate-400 sm:text-[10px]">
+                        Validación interna institucional generada por SIGETIC.
+                    </p>
                 </div>
-                <p className="mt-5 text-xs font-bold text-slate-500">
-                    Documento generado por SIGETIC para control interno institucional.
-                </p>
             </div>
         </div>
     );
 }
 
-function formatDateTime(value: string) {
-    return new Intl.DateTimeFormat("es-CO", {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(new Date(value));
+function formatDuration(minutes: number) {
+    if (minutes < 60) return `${minutes} minutos`;
+    const hours = Math.floor(minutes / 60);
+    const remaining = minutes % 60;
+    return remaining ? `${hours} h ${remaining} min` : `${hours} ${hours === 1 ? "hora" : "horas"}`;
 }

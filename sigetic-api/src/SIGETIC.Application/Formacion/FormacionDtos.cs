@@ -5,6 +5,7 @@ public sealed record CrearCursoFormacionRequest(
     string Descripcion,
     string Categoria,
     string DirigidoA,
+    string EntidadCertificadora,
     int DuracionMinutos,
     int PuntajeMinimo,
     IReadOnlyList<Guid> DependenciaIds,
@@ -18,6 +19,7 @@ public sealed record ActualizarCursoFormacionRequest(
     string Descripcion,
     string Categoria,
     string DirigidoA,
+    string EntidadCertificadora,
     int DuracionMinutos,
     int PuntajeMinimo,
     bool Activo,
@@ -35,12 +37,14 @@ public sealed record CrearMaterialFormacionRequest(
 
 public sealed record CrearPreguntaFormacionRequest(
     string Texto,
+    string Tipo,
     string? Explicacion,
     IReadOnlyList<CrearOpcionFormacionRequest> Opciones
 );
 
 public sealed record CrearOpcionFormacionRequest(
     string Texto,
+    string? TextoRelacionado,
     bool EsCorrecta
 );
 
@@ -50,7 +54,15 @@ public sealed record ResponderEvaluacionFormacionRequest(
 
 public sealed record RespuestaEvaluacionFormacionRequest(
     Guid PreguntaId,
-    Guid OpcionId
+    Guid? OpcionId,
+    IReadOnlyList<Guid>? OpcionIds,
+    string? Texto,
+    IReadOnlyList<RelacionEvaluacionFormacionRequest>? Relaciones
+);
+
+public sealed record RelacionEvaluacionFormacionRequest(
+    Guid ItemId,
+    Guid RelacionId
 );
 
 public sealed record CursoFormacionResponse(
@@ -59,6 +71,7 @@ public sealed record CursoFormacionResponse(
     string Descripcion,
     string Categoria,
     string DirigidoA,
+    string EntidadCertificadora,
     int DuracionMinutos,
     int PuntajeMinimo,
     bool Activo,
@@ -97,6 +110,7 @@ public sealed record MaterialFormacionResponse(
 public sealed record PreguntaFormacionResponse(
     Guid Id,
     string Texto,
+    string Tipo,
     string? Explicacion,
     int Orden,
     IReadOnlyList<OpcionFormacionResponse> Opciones
@@ -105,6 +119,7 @@ public sealed record PreguntaFormacionResponse(
 public sealed record OpcionFormacionResponse(
     Guid Id,
     string Texto,
+    string? TextoRelacionado,
     int Orden
 );
 
@@ -137,9 +152,10 @@ public sealed record ResultadoEvaluacionFormacionResponse(
 public sealed record ResultadoPreguntaFormacionResponse(
     Guid PreguntaId,
     string Pregunta,
-    Guid OpcionSeleccionadaId,
-    string OpcionSeleccionada,
-    bool Correcta,
+    string Tipo,
+    Guid? OpcionSeleccionadaId,
+    string Respuesta,
+    bool? Correcta,
     string? Explicacion
 );
 
@@ -151,6 +167,7 @@ public sealed record CertificadoFormacionResponse(
     string ParticipanteCorreo,
     string Categoria,
     string DirigidoA,
+    string EntidadCertificadora,
     int DuracionMinutos,
     int Puntaje,
     int PuntajeMinimo,

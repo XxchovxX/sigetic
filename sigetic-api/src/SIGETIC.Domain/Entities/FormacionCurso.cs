@@ -17,6 +17,7 @@ public sealed class FormacionCurso
         string descripcion,
         string categoria,
         string dirigidoA,
+        string entidadCertificadora,
         int duracionMinutos,
         int puntajeMinimo)
     {
@@ -34,6 +35,7 @@ public sealed class FormacionCurso
         Descripcion = descripcion.Trim();
         Categoria = NormalizeOptional(categoria) ?? "General";
         DirigidoA = NormalizeOptional(dirigidoA) ?? "Funcionarios y contratistas";
+        EntidadCertificadora = NormalizeOptional(entidadCertificadora) ?? "Secretaría de Planeación";
         DuracionMinutos = Math.Max(1, duracionMinutos);
         PuntajeMinimo = puntajeMinimo;
         Activo = true;
@@ -45,6 +47,7 @@ public sealed class FormacionCurso
     public string Descripcion { get; private set; } = string.Empty;
     public string Categoria { get; private set; } = string.Empty;
     public string DirigidoA { get; private set; } = string.Empty;
+    public string EntidadCertificadora { get; private set; } = string.Empty;
     public int DuracionMinutos { get; private set; }
     public int PuntajeMinimo { get; private set; }
     public bool Activo { get; private set; }
@@ -62,6 +65,7 @@ public sealed class FormacionCurso
         string descripcion,
         string categoria,
         string dirigidoA,
+        string entidadCertificadora,
         int duracionMinutos,
         int puntajeMinimo,
         bool activo)
@@ -79,6 +83,7 @@ public sealed class FormacionCurso
         Descripcion = descripcion.Trim();
         Categoria = NormalizeOptional(categoria) ?? "General";
         DirigidoA = NormalizeOptional(dirigidoA) ?? "Funcionarios y contratistas";
+        EntidadCertificadora = NormalizeOptional(entidadCertificadora) ?? "Secretaría de Planeación";
         DuracionMinutos = Math.Max(1, duracionMinutos);
         PuntajeMinimo = puntajeMinimo;
         Activo = activo;

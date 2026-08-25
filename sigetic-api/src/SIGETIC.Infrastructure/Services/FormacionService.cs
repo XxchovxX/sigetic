@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
 using SIGETIC.Application.Formacion;
 using SIGETIC.Domain.Entities;
 using SIGETIC.Infrastructure.Persistence;
@@ -139,6 +142,7 @@ public sealed class FormacionService : IFormacionService
             request.Descripcion,
             request.Categoria,
             request.DirigidoA,
+            request.EntidadCertificadora,
             request.DuracionMinutos,
             request.PuntajeMinimo);
 
@@ -187,6 +191,7 @@ public sealed class FormacionService : IFormacionService
             request.Descripcion,
             request.Categoria,
             request.DirigidoA,
+            request.EntidadCertificadora,
             request.DuracionMinutos,
             request.PuntajeMinimo,
             request.Activo);
@@ -239,45 +244,30 @@ public sealed class FormacionService : IFormacionService
         var respuestas = request.Respuestas
             .GroupBy(e => e.PreguntaId)
             .Select(e => e.Last())
-            .ToDictionary(e => e.PreguntaId, e => e.OpcionId);
+            .ToDictionary(e => e.PreguntaId);
 
         if (respuestas.Count != curso.Preguntas.Count)
         {
             throw new ArgumentException("Debe responder todas las preguntas de la evaluacion.");
         }
 
-        var detalle = new List<ResultadoPreguntaFormacionResponse>();
+        var evaluadas = new List<RespuestaEvaluada>();
         var correctas = 0;
+        var preguntasCalificables = curso.Preguntas.Count(e => e.EsCalificable);
 
         foreach (var pregunta in curso.Preguntas.OrderBy(e => e.Orden))
         {
-            if (!respuestas.TryGetValue(pregunta.Id, out Guid opcionId))
+            if (!respuestas.TryGetValue(pregunta.Id, out var respuesta))
             {
                 throw new ArgumentException("Debe responder todas las preguntas de la evaluacion.");
             }
 
-            var opcion = pregunta.Opciones.FirstOrDefault(e => e.Id == opcionId);
-
-            if (opcion is null)
-            {
-                throw new ArgumentException("Una de las respuestas seleccionadas no pertenece a la pregunta.");
-            }
-
-            if (opcion.EsCorrecta)
-            {
-                correctas++;
-            }
-
-            detalle.Add(new ResultadoPreguntaFormacionResponse(
-                pregunta.Id,
-                pregunta.Texto,
-                opcion.Id,
-                opcion.Texto,
-                opcion.EsCorrecta,
-                pregunta.Explicacion));
+            var evaluada = EvaluarRespuesta(pregunta, respuesta);
+            evaluadas.Add(evaluada);
+            if (evaluada.Correcta == true) correctas++;
         }
 
-        var puntaje = (int)Math.Round(correctas * 100m / curso.Preguntas.Count, MidpointRounding.AwayFromZero);
+        var puntaje = (int)Math.Round(correctas * 100m / preguntasCalificables, MidpointRounding.AwayFromZero);
         var aprobado = puntaje >= curso.PuntajeMinimo;
         var codigoCertificado = aprobado
             ? $"SIG-FOR-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}"
@@ -288,18 +278,20 @@ public sealed class FormacionService : IFormacionService
             usuarioId,
             participanteNombre,
             participanteCorreo,
-            curso.Preguntas.Count,
+            preguntasCalificables,
             correctas,
             puntaje,
             aprobado,
             codigoCertificado);
 
-        foreach (var item in detalle)
+        foreach (var item in evaluadas)
         {
             intento.AgregarRespuesta(new FormacionRespuesta(
                 intento.Id,
                 item.PreguntaId,
                 item.OpcionSeleccionadaId,
+                item.RespuestaTexto,
+                item.DatosRespuesta,
                 item.Correcta));
         }
 
@@ -312,12 +304,19 @@ public sealed class FormacionService : IFormacionService
             curso.Titulo,
             puntaje,
             curso.PuntajeMinimo,
-            curso.Preguntas.Count,
+            preguntasCalificables,
             correctas,
             aprobado,
             codigoCertificado,
             intento.FechaPresentacionUtc,
-            detalle);
+            evaluadas.Select(item => new ResultadoPreguntaFormacionResponse(
+                item.PreguntaId,
+                item.Pregunta,
+                item.Tipo,
+                item.OpcionSeleccionadaId,
+                item.RespuestaVisible,
+                item.Correcta,
+                item.Explicacion)).ToList());
     }
 
     public async Task<IReadOnlyList<IntentoFormacionResumenResponse>> GetMisIntentosAsync(
@@ -361,6 +360,7 @@ public sealed class FormacionService : IFormacionService
             intento.ParticipanteCorreo,
             intento.Curso?.Categoria ?? "Formacion institucional",
             intento.Curso?.DirigidoA ?? "Funcionarios y contratistas",
+            intento.Curso?.EntidadCertificadora ?? "Secretaría de Planeación",
             intento.Curso?.DuracionMinutos ?? 0,
             intento.Puntaje,
             intento.Curso?.PuntajeMinimo ?? 0,
@@ -450,6 +450,7 @@ public sealed class FormacionService : IFormacionService
             var pregunta = new FormacionPregunta(
                 cursoId,
                 item.pregunta.Texto,
+                item.pregunta.Tipo,
                 item.pregunta.Explicacion,
                 item.index + 1);
 
@@ -458,6 +459,7 @@ public sealed class FormacionService : IFormacionService
                 pregunta.AgregarOpcion(new FormacionOpcion(
                     pregunta.Id,
                     opcion.opcion.Texto,
+                    opcion.opcion.TextoRelacionado,
                     opcion.opcion.EsCorrecta,
                     opcion.index + 1));
             }
@@ -489,17 +491,184 @@ public sealed class FormacionService : IFormacionService
                 throw new ArgumentException("Todas las preguntas deben tener texto.");
             }
 
-            if (pregunta.Opciones.Count < 2)
-            {
-                throw new ArgumentException("Cada pregunta debe tener al menos dos opciones.");
-            }
+            ValidatePregunta(pregunta);
+        }
 
-            if (pregunta.Opciones.Count(e => e.EsCorrecta) != 1)
-            {
-                throw new ArgumentException("Cada pregunta debe tener exactamente una respuesta correcta.");
-            }
+        if (preguntas.All(e => e.Tipo == "RespuestaLarga"))
+            throw new ArgumentException("La evaluación debe incluir al menos una pregunta calificable.");
+    }
+
+    private static void ValidatePregunta(CrearPreguntaFormacionRequest pregunta)
+    {
+        var opcionesConTexto = pregunta.Opciones
+            .Where(e => !string.IsNullOrWhiteSpace(e.Texto))
+            .ToList();
+
+        switch (pregunta.Tipo)
+        {
+            case "SeleccionUnica":
+            case "ListaDesplegable":
+                if (opcionesConTexto.Count < 4)
+                    throw new ArgumentException("Las preguntas de selección deben tener al menos cuatro opciones.");
+                if (opcionesConTexto.Count(e => e.EsCorrecta) != 1)
+                    throw new ArgumentException("La selección única debe tener exactamente una respuesta correcta.");
+                break;
+
+            case "SeleccionMultiple":
+                if (opcionesConTexto.Count < 4)
+                    throw new ArgumentException("La selección múltiple debe tener al menos cuatro opciones.");
+                if (opcionesConTexto.Count(e => e.EsCorrecta) < 2)
+                    throw new ArgumentException("La selección múltiple debe tener al menos dos respuestas correctas.");
+                break;
+
+            case "VerdaderoFalso":
+                if (opcionesConTexto.Count != 2 || opcionesConTexto.Count(e => e.EsCorrecta) != 1)
+                    throw new ArgumentException("Verdadero o falso debe tener dos opciones y una respuesta correcta.");
+                break;
+
+            case "RespuestaCorta":
+                if (opcionesConTexto.Count == 0)
+                    throw new ArgumentException("La respuesta corta debe incluir al menos una respuesta aceptada.");
+                break;
+
+            case "RespuestaLarga":
+                if (pregunta.Opciones.Count > 0)
+                    throw new ArgumentException("La respuesta larga no utiliza opciones.");
+                break;
+
+            case "Relacionar":
+                if (opcionesConTexto.Count < 2 || opcionesConTexto.Any(e => string.IsNullOrWhiteSpace(e.TextoRelacionado)))
+                    throw new ArgumentException("Relacionar requiere al menos dos pares completos.");
+                break;
+
+            default:
+                throw new ArgumentException("Selecciona un tipo de pregunta válido.");
         }
     }
+
+    private static RespuestaEvaluada EvaluarRespuesta(
+        FormacionPregunta pregunta,
+        RespuestaEvaluacionFormacionRequest respuesta)
+    {
+        switch (pregunta.Tipo)
+        {
+            case "SeleccionUnica":
+            case "ListaDesplegable":
+            case "VerdaderoFalso":
+            {
+                if (!respuesta.OpcionId.HasValue)
+                    throw new ArgumentException($"Debes responder: {pregunta.Texto}");
+
+                var opcion = pregunta.Opciones.FirstOrDefault(e => e.Id == respuesta.OpcionId.Value)
+                    ?? throw new ArgumentException("Una respuesta seleccionada no pertenece a la pregunta.");
+                return new RespuestaEvaluada(
+                    pregunta.Id, pregunta.Texto, pregunta.Tipo, opcion.Id,
+                    null, null, opcion.Texto, opcion.EsCorrecta, pregunta.Explicacion);
+            }
+
+            case "SeleccionMultiple":
+            {
+                var seleccionadas = (respuesta.OpcionIds ?? Array.Empty<Guid>()).Distinct().ToHashSet();
+                if (seleccionadas.Count == 0)
+                    throw new ArgumentException($"Debes seleccionar al menos una opción en: {pregunta.Texto}");
+                if (seleccionadas.Any(id => pregunta.Opciones.All(e => e.Id != id)))
+                    throw new ArgumentException("Una respuesta seleccionada no pertenece a la pregunta.");
+
+                var correctas = pregunta.Opciones.Where(e => e.EsCorrecta).Select(e => e.Id).ToHashSet();
+                var textos = pregunta.Opciones.Where(e => seleccionadas.Contains(e.Id)).OrderBy(e => e.Orden).Select(e => e.Texto);
+                return new RespuestaEvaluada(
+                    pregunta.Id, pregunta.Texto, pregunta.Tipo, null,
+                    null, JsonSerializer.Serialize(seleccionadas), string.Join(", ", textos),
+                    seleccionadas.SetEquals(correctas), pregunta.Explicacion);
+            }
+
+            case "RespuestaCorta":
+            {
+                var texto = respuesta.Texto?.Trim();
+                if (string.IsNullOrWhiteSpace(texto))
+                    throw new ArgumentException($"Debes responder: {pregunta.Texto}");
+                var correcta = pregunta.Opciones.Any(e => NormalizarRespuesta(e.Texto) == NormalizarRespuesta(texto));
+                return new RespuestaEvaluada(
+                    pregunta.Id, pregunta.Texto, pregunta.Tipo, null,
+                    texto, null, texto, correcta, pregunta.Explicacion);
+            }
+
+            case "RespuestaLarga":
+            {
+                var texto = respuesta.Texto?.Trim();
+                if (string.IsNullOrWhiteSpace(texto))
+                    throw new ArgumentException($"Debes responder: {pregunta.Texto}");
+                return new RespuestaEvaluada(
+                    pregunta.Id, pregunta.Texto, pregunta.Tipo, null,
+                    texto, null, texto, null, pregunta.Explicacion);
+            }
+
+            case "Relacionar":
+            {
+                var relaciones = respuesta.Relaciones ?? Array.Empty<RelacionEvaluacionFormacionRequest>();
+                var porItem = relaciones.GroupBy(e => e.ItemId).Select(e => e.Last()).ToList();
+                if (porItem.Count != pregunta.Opciones.Count)
+                    throw new ArgumentException($"Debes completar todas las relaciones en: {pregunta.Texto}");
+
+                var ids = pregunta.Opciones.Select(e => e.Id).ToHashSet();
+                if (porItem.Any(e => !ids.Contains(e.ItemId) || !ids.Contains(e.RelacionId)))
+                    throw new ArgumentException("Una relación no pertenece a la pregunta.");
+
+                var correcta = porItem.All(e => e.ItemId == e.RelacionId) &&
+                    porItem.Select(e => e.RelacionId).Distinct().Count() == pregunta.Opciones.Count;
+                var visibles = porItem.Select(item =>
+                {
+                    var izquierda = pregunta.Opciones.First(e => e.Id == item.ItemId).Texto;
+                    var derecha = pregunta.Opciones.First(e => e.Id == item.RelacionId).TextoRelacionado;
+                    return $"{izquierda}: {derecha}";
+                });
+                return new RespuestaEvaluada(
+                    pregunta.Id, pregunta.Texto, pregunta.Tipo, null,
+                    null, JsonSerializer.Serialize(porItem), string.Join("; ", visibles),
+                    correcta, pregunta.Explicacion);
+            }
+
+            default:
+                throw new ArgumentException("La evaluación contiene un tipo de pregunta no compatible.");
+        }
+    }
+
+    private static string NormalizarRespuesta(string value)
+    {
+        var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(decomposed.Length);
+        var previousWasSpace = false;
+
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (char.IsWhiteSpace(character))
+            {
+                if (!previousWasSpace) builder.Append(' ');
+                previousWasSpace = true;
+            }
+            else
+            {
+                builder.Append(character);
+                previousWasSpace = false;
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private sealed record RespuestaEvaluada(
+        Guid PreguntaId,
+        string Pregunta,
+        string Tipo,
+        Guid? OpcionSeleccionadaId,
+        string? RespuestaTexto,
+        string? DatosRespuesta,
+        string RespuestaVisible,
+        bool? Correcta,
+        string? Explicacion);
 
     private static CursoFormacionResponse ToCursoResponse(
         FormacionCurso curso,
@@ -511,6 +680,7 @@ public sealed class FormacionService : IFormacionService
             curso.Descripcion,
             curso.Categoria,
             curso.DirigidoA,
+            curso.EntidadCertificadora,
             curso.DuracionMinutos,
             curso.PuntajeMinimo,
             curso.Activo,
@@ -547,13 +717,17 @@ public sealed class FormacionService : IFormacionService
                 .Select(e => new PreguntaFormacionResponse(
                     e.Id,
                     e.Texto,
+                    e.Tipo,
                     e.Explicacion,
                     e.Orden,
-                    e.Opciones
+                    (e.Tipo == "RespuestaCorta"
+                        ? Enumerable.Empty<FormacionOpcion>()
+                        : e.Opciones)
                         .OrderBy(option => option.Orden)
                         .Select(option => new OpcionFormacionResponse(
                             option.Id,
                             option.Texto,
+                            option.TextoRelacionado,
                             option.Orden))
                         .ToList()))
                 .ToList(),
