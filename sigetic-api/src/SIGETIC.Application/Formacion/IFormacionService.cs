@@ -31,8 +31,6 @@ public interface IFormacionService
         Guid cursoId,
         ResponderEvaluacionFormacionRequest request,
         Guid usuarioId,
-        string participanteNombre,
-        string participanteCorreo,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<IntentoFormacionResumenResponse>> GetMisIntentosAsync(

@@ -32,7 +32,7 @@ function safeFilename(value: string) {
 
 export async function descargarCertificadoFormacionPdf(certificado: FormacionCertificado) {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
-    const logo = await loadImage("/pdf/escudo-san-carlos.png");
+    const logo = await loadImage("/identity/logo-alcaldia.png");
     const width = doc.internal.pageSize.getWidth();
     const height = doc.internal.pageSize.getHeight();
 
@@ -45,7 +45,7 @@ export async function descargarCertificadoFormacionPdf(certificado: FormacionCer
     doc.setLineWidth(0.5);
     doc.roundedRect(14, 14, width - 28, height - 28, 2, 2);
 
-    doc.addImage(logo, "PNG", 22, 20, 24, 24);
+    doc.addImage(logo, "PNG", 20, 17, 38, 25);
     doc.setTextColor(20, 35, 59);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);

@@ -119,7 +119,8 @@ public sealed class FormacionService : IFormacionService
             .AsNoTracking()
             .Include(e => e.Curso)
             .Where(e => e.CursoId == id && e.UsuarioId == usuarioId)
-            .OrderByDescending(e => e.FechaPresentacionUtc)
+            .OrderByDescending(e => e.Aprobado && e.Puntaje >= 100)
+            .ThenByDescending(e => e.FechaPresentacionUtc)
             .Select(e => ToIntentoResponse(e))
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -214,14 +215,25 @@ public sealed class FormacionService : IFormacionService
         Guid cursoId,
         ResponderEvaluacionFormacionRequest request,
         Guid usuarioId,
-        string participanteNombre,
-        string participanteCorreo,
         CancellationToken cancellationToken)
     {
-        var dependenciaId = await _dbContext.Usuarios
+        var participante = await _dbContext.Usuarios
+            .AsNoTracking()
             .Where(e => e.Id == usuarioId)
-            .Select(e => e.DependenciaId)
+            .Select(e => new
+            {
+                e.NombreCompleto,
+                e.Correo,
+                e.DependenciaId
+            })
             .FirstOrDefaultAsync(cancellationToken);
+
+        if (participante is null)
+        {
+            throw new InvalidOperationException("No se encontro el perfil del usuario autenticado.");
+        }
+
+        var dependenciaId = participante.DependenciaId;
 
         var curso = await BaseCursoQuery()
             .Where(e =>
@@ -239,6 +251,21 @@ public sealed class FormacionService : IFormacionService
         if (curso.Preguntas.Count == 0)
         {
             throw new InvalidOperationException("La capacitacion no tiene evaluacion configurada.");
+        }
+
+        var yaCompletoPerfectamente = await _dbContext.FormacionIntentos
+            .AsNoTracking()
+            .AnyAsync(e =>
+                e.CursoId == cursoId &&
+                e.UsuarioId == usuarioId &&
+                e.Aprobado &&
+                e.Puntaje >= 100,
+                cancellationToken);
+
+        if (yaCompletoPerfectamente)
+        {
+            throw new InvalidOperationException(
+                "Esta formacion ya fue completada con 100 %. No es necesario presentar nuevamente la evaluacion.");
         }
 
         var respuestas = request.Respuestas
@@ -276,8 +303,8 @@ public sealed class FormacionService : IFormacionService
         var intento = new FormacionIntento(
             curso.Id,
             usuarioId,
-            participanteNombre,
-            participanteCorreo,
+            participante.NombreCompleto,
+            participante.Correo,
             preguntasCalificables,
             correctas,
             puntaje,
@@ -352,12 +379,22 @@ public sealed class FormacionService : IFormacionService
             return null;
         }
 
+        var participante = await _dbContext.Usuarios
+            .AsNoTracking()
+            .Where(e => e.Id == intento.UsuarioId)
+            .Select(e => new
+            {
+                e.NombreCompleto,
+                e.Correo
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         return new CertificadoFormacionResponse(
             intento.Id,
             intento.CursoId,
             intento.Curso?.Titulo ?? "Capacitacion SIGETIC",
-            intento.ParticipanteNombre,
-            intento.ParticipanteCorreo,
+            participante?.NombreCompleto ?? intento.ParticipanteNombre,
+            participante?.Correo ?? intento.ParticipanteCorreo,
             intento.Curso?.Categoria ?? "Formacion institucional",
             intento.Curso?.DirigidoA ?? "Funcionarios y contratistas",
             intento.Curso?.EntidadCertificadora ?? "Secretaría de Planeación",
@@ -421,7 +458,12 @@ public sealed class FormacionService : IFormacionService
 
         return intentos
             .GroupBy(e => e.CursoId)
-            .ToDictionary(e => e.Key, e => ToIntentoResponse(e.First()));
+            .ToDictionary(
+                e => e.Key,
+                e => ToIntentoResponse(e
+                    .OrderByDescending(item => item.Aprobado && item.Puntaje >= 100)
+                    .ThenByDescending(item => item.FechaPresentacionUtc)
+                    .First()));
     }
 
     private static List<FormacionMaterial> BuildMateriales(

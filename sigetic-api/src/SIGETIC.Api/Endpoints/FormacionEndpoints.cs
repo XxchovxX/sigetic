@@ -112,8 +112,6 @@ public static class FormacionEndpoints
                     id,
                     request,
                     GetUserId(user),
-                    GetName(user),
-                    GetEmail(user),
                     cancellationToken);
 
                 return Results.Ok(resultado);
@@ -172,21 +170,6 @@ public static class FormacionEndpoints
         return Guid.TryParse(value, out Guid id)
             ? id
             : throw new InvalidOperationException("No se pudo identificar el usuario autenticado.");
-    }
-
-    private static string GetName(ClaimsPrincipal user)
-    {
-        return user.FindFirstValue(ClaimTypes.Name) ??
-            user.FindFirstValue(JwtRegisteredClaimNames.Email) ??
-            user.FindFirstValue(ClaimTypes.Email) ??
-            "Usuario SIGETIC";
-    }
-
-    private static string GetEmail(ClaimsPrincipal user)
-    {
-        return user.FindFirstValue(JwtRegisteredClaimNames.Email) ??
-            user.FindFirstValue(ClaimTypes.Email) ??
-            "sin-correo@sigetic.local";
     }
 
     private static bool CanManageTraining(ClaimsPrincipal user)

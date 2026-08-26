@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
     AlertCircle,
@@ -14,6 +15,7 @@ import {
     GraduationCap,
     Link2,
     Loader2,
+    LockKeyhole,
     Plus,
     Save,
     Search,
@@ -162,6 +164,7 @@ export default function FormacionPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoadingCertificate, setIsLoadingCertificate] = useState(false);
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
 
@@ -210,6 +213,10 @@ export default function FormacionPage() {
     const answeredCount = selectedCurso?.preguntas.filter((pregunta) =>
         isQuestionAnswered(pregunta, answers[pregunta.id])).length ?? 0;
     const totalQuestions = selectedCurso?.preguntas.length ?? 0;
+    const perfectAttempt = selectedCurso?.ultimoIntento?.aprobado &&
+        selectedCurso.ultimoIntento.puntaje >= 100
+        ? selectedCurso.ultimoIntento
+        : null;
     const progressPercent = totalQuestions > 0
         ? Math.round((answeredCount / totalQuestions) * 100)
         : 0;
@@ -285,6 +292,22 @@ export default function FormacionPage() {
         setCertificado(null);
         setMessage("");
         setError("");
+    }
+
+    async function loadExistingCertificate(intentoId: string) {
+        try {
+            setIsLoadingCertificate(true);
+            setError("");
+            setCertificado(await getCertificadoFormacion(intentoId));
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "No fue posible cargar el certificado."
+            );
+        } finally {
+            setIsLoadingCertificate(false);
+        }
     }
 
     function updateAnswer(pregunta: FormacionPregunta, value: RespuestaForm) {
@@ -1038,7 +1061,7 @@ export default function FormacionPage() {
                                         </div>
                                         {curso.ultimoIntento?.aprobado ? (
                                             <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-black text-[#006b2e]">
-                                                Aprobado
+                                                {curso.ultimoIntento.puntaje >= 100 ? "Completado 100%" : "Aprobado"}
                                             </span>
                                         ) : null}
                                     </div>
@@ -1115,7 +1138,34 @@ export default function FormacionPage() {
                                 ) : null}
                             </section>
 
-                            <form id="evaluacion-formacion" onSubmit={handleSubmitEvaluation} className="scroll-mt-4 space-y-4 border-t border-slate-200 pt-6">
+                            {perfectAttempt ? (
+                                <section id="evaluacion-formacion" className="scroll-mt-4 border-t border-slate-200 pt-6">
+                                    <div className="flex flex-col gap-4 rounded-2xl border border-green-200 bg-green-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex items-start gap-3">
+                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#006b2e] shadow-sm">
+                                                <LockKeyhole className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black uppercase tracking-[0.2em] text-[#006b2e]">Formación completada</p>
+                                                <h3 className="mt-1 text-lg font-black text-[#14233b]">Aprobaste esta evaluación con 100%</h3>
+                                                <p className="mt-1 text-sm leading-6 text-slate-600">
+                                                    El cuestionario quedó cerrado para nuevos intentos. Puedes seguir consultando el material y descargar tu certificado.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            disabled={isLoadingCertificate}
+                                            onClick={() => void loadExistingCertificate(perfectAttempt.id)}
+                                            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#006b2e] px-5 text-sm font-black text-white shadow-lg shadow-green-900/15 hover:bg-[#0b8f3a] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isLoadingCertificate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Award className="h-4 w-4" />}
+                                            Ver certificado
+                                        </button>
+                                    </div>
+                                </section>
+                            ) : (
+                                <form id="evaluacion-formacion" onSubmit={handleSubmitEvaluation} className="scroll-mt-4 space-y-4 border-t border-slate-200 pt-6">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                                     <div>
                                         <p className="text-xs font-black uppercase tracking-[0.2em] text-[#006b2e]">Validación de aprendizaje</p>
@@ -1182,7 +1232,8 @@ export default function FormacionPage() {
                                         </button>
                                     )}
                                 </div>
-                            </form>
+                                </form>
+                            )}
 
                             {resultado ? (
                                 <div
@@ -1558,9 +1609,16 @@ function Certificate({
                 </button>
             </div>
 
-            <div className="relative mx-auto mt-5 aspect-[1.55/1] w-full max-w-3xl overflow-hidden rounded-lg border-2 border-[#006b2e] bg-[#fbfdfb] p-4 shadow-sm sm:p-8">
+            <div className="relative mx-auto mt-5 min-h-[25rem] w-full max-w-3xl overflow-hidden rounded-lg border-2 border-[#006b2e] bg-[#fbfdfb] p-4 shadow-sm sm:aspect-[1.55/1] sm:min-h-0 sm:p-8">
                 <div className="absolute inset-2 rounded border border-[#f5c400]" />
                 <div className="relative flex h-full flex-col items-center justify-center text-center">
+                    <Image
+                        src="/identity/logo-alcaldia.png"
+                        alt="Alcaldía de San Carlos de Guaroa"
+                        width={112}
+                        height={75}
+                        className="mb-2 h-auto w-20 object-contain sm:w-28"
+                    />
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#14233b] sm:text-xs">
                         Alcaldía Municipal de San Carlos de Guaroa
                     </p>
