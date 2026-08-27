@@ -2,19 +2,35 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     ArrowLeft,
+    AlertTriangle,
     CheckCircle2,
     ClipboardList,
     Computer,
+    Copy,
+    Download,
+    ExternalLink,
     HardDrive,
+    Laptop,
+    Loader2,
     Save,
+    ScanLine,
+    ShieldCheck,
     UserRound,
 } from "lucide-react";
 import { z } from "zod";
 import { createEquipo } from "@/lib/api";
+import {
+    crearInventarioDeteccion,
+    descargarRecolectorWindows,
+    getEstadoInventarioDeteccion,
+    type DatosInventarioDetectados,
+    type InventarioDeteccionCreada,
+} from "@/lib/inventario-deteccion-api";
 
 const equipmentSchema = z.object({
     codigoInterno: z.string().min(3, "El codigo interno es obligatorio."),
@@ -37,6 +53,15 @@ const equipmentSchema = z.object({
 });
 
 type EquipmentFormValues = z.infer<typeof equipmentSchema>;
+
+type DetectionState =
+    | "idle"
+    | "creating"
+    | "waiting"
+    | "received"
+    | "duplicate"
+    | "expired"
+    | "error";
 
 const dependencies = [
     "Despacho Municipal",
@@ -76,12 +101,49 @@ function today() {
     return new Date().toISOString().slice(0, 10);
 }
 
+function getCollectorCommand(fileName: string) {
+    return `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOME\\Downloads\\${fileName}"`;
+}
+
+function formatStorage(data: DatosInventarioDetectados) {
+    const storage = (data.discos ?? [])
+        .filter((disk) => disk.capacidadBytes > 0)
+        .map((disk) => {
+            const capacity = Math.round((disk.capacidadBytes / 1_000_000_000) * 10) / 10;
+            return `${disk.tipo || "Disco"} ${capacity} GB${disk.modelo ? ` (${disk.modelo})` : ""}`;
+        })
+        .join(" | ");
+
+    return storage.slice(0, 120) || "No identificado";
+}
+
+function buildDetectionNotes(data: DatosInventarioDetectados) {
+    return [
+        "Captura automática SIGETIC",
+        data.nombreEquipo ? `Nombre del equipo: ${data.nombreEquipo}` : "",
+        data.uuidHardware ? `UUID: ${data.uuidHardware}` : "",
+        data.biosVersion ? `BIOS: ${data.biosVersion}` : "",
+        data.usuarioActual ? `Usuario de Windows: ${data.usuarioActual}` : "",
+        data.fechaInstalacion ? `Instalación del sistema: ${data.fechaInstalacion}` : "",
+    ]
+        .filter(Boolean)
+        .join(" | ");
+}
+
 export default function NewEquipmentPage() {
     const router = useRouter();
+    const [detectionSession, setDetectionSession] = useState<InventarioDeteccionCreada | null>(null);
+    const [detectionState, setDetectionState] = useState<DetectionState>("idle");
+    const [detectionError, setDetectionError] = useState("");
+    const [existingEquipmentId, setExistingEquipmentId] = useState<string | null>(null);
+    const [commandCopied, setCommandCopied] = useState(false);
+    const [collectorFileName, setCollectorFileName] = useState("");
 
     const {
         register,
         handleSubmit,
+        getValues,
+        reset,
         formState: { errors, isSubmitting },
     } = useForm<EquipmentFormValues>({
         resolver: zodResolver(equipmentSchema),
@@ -105,6 +167,136 @@ export default function NewEquipmentPage() {
             observaciones: "",
         },
     });
+
+    const applyDetectedData = useCallback((data: DatosInventarioDetectados) => {
+        const current = getValues();
+        const operatingSystem = [
+            data.sistemaOperativo,
+            data.versionSistemaOperativo,
+            data.arquitectura,
+        ].filter(Boolean).join(" · ").slice(0, 120);
+        const notes = [current.observaciones, buildDetectionNotes(data)]
+            .filter(Boolean)
+            .join("\n")
+            .slice(0, 1000);
+
+        reset({
+            ...current,
+            tipoEquipo: equipmentTypes.includes(data.tipoEquipo ?? "")
+                ? (data.tipoEquipo ?? current.tipoEquipo)
+                : current.tipoEquipo,
+            marca: data.fabricante || current.marca,
+            modelo: data.modelo || current.modelo,
+            serial: data.serial || current.serial,
+            procesador: data.procesador || current.procesador,
+            memoriaRam: data.memoriaRamGb > 0
+                ? `${data.memoriaRamGb} GB`
+                : current.memoriaRam,
+            almacenamiento: formatStorage(data),
+            sistemaOperativo: operatingSystem || current.sistemaOperativo,
+            direccionIp: data.direccionIp || current.direccionIp,
+            direccionMac: data.direccionMac || current.direccionMac,
+            observaciones: notes,
+        });
+    }, [getValues, reset]);
+
+    useEffect(() => {
+        if (!detectionSession || detectionState !== "waiting") return;
+
+        let cancelled = false;
+        let timer: number | undefined;
+        const sessionId = detectionSession.id;
+
+        async function pollDetection() {
+            try {
+                const status = await getEstadoInventarioDeteccion(sessionId);
+                if (cancelled) return;
+
+                if (status.estado === "Expirada") {
+                    setDetectionState("expired");
+                    return;
+                }
+
+                if (status.estado === "Recibida" && status.datos) {
+                    if (status.equipoExistenteId) {
+                        setExistingEquipmentId(status.equipoExistenteId);
+                        setDetectionState("duplicate");
+                    } else {
+                        applyDetectedData(status.datos);
+                        setDetectionState("received");
+                    }
+                    return;
+                }
+
+                timer = window.setTimeout(() => void pollDetection(), 2500);
+            } catch (error) {
+                if (cancelled) return;
+                setDetectionError(
+                    error instanceof Error
+                        ? error.message
+                        : "No fue posible consultar la detección."
+                );
+                setDetectionState("error");
+            }
+        }
+
+        timer = window.setTimeout(() => void pollDetection(), 1200);
+
+        return () => {
+            cancelled = true;
+            if (timer) window.clearTimeout(timer);
+        };
+    }, [applyDetectedData, detectionSession, detectionState]);
+
+    async function startDetection() {
+        try {
+            setDetectionState("creating");
+            setDetectionError("");
+            setExistingEquipmentId(null);
+            setCommandCopied(false);
+
+            const session = await crearInventarioDeteccion();
+            setDetectionSession(session);
+            const fileName = await descargarRecolectorWindows(
+                session.token,
+                window.location.origin,
+                session.id
+            );
+            setCollectorFileName(fileName);
+            setDetectionState("waiting");
+        } catch (error) {
+            setDetectionError(
+                error instanceof Error
+                    ? error.message
+                    : "No fue posible iniciar la detección."
+            );
+            setDetectionState("error");
+        }
+    }
+
+    async function downloadCollectorAgain() {
+        if (!detectionSession) return;
+
+        try {
+            await descargarRecolectorWindows(
+                detectionSession.token,
+                window.location.origin,
+                detectionSession.id
+            );
+        } catch (error) {
+            setDetectionError(
+                error instanceof Error
+                    ? error.message
+                    : "No fue posible descargar nuevamente el recolector."
+            );
+        }
+    }
+
+    async function copyCollectorCommand() {
+        await navigator.clipboard.writeText(getCollectorCommand(collectorFileName));
+        setCommandCopied(true);
+        window.setTimeout(() => setCommandCopied(false), 1800);
+    }
 
     async function onSubmit(data: EquipmentFormValues) {
         const created = await createEquipo({
@@ -161,6 +353,86 @@ export default function NewEquipmentPage() {
                     <CheckCircle2 className="h-5 w-5" />
                     Registro controlado
                 </div>
+            </section>
+
+            <section className="overflow-hidden rounded-[1.7rem] border border-green-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
+                            <ScanLine className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#006b2e]">
+                                Detección automática
+                            </p>
+                            <h3 className="mt-1 text-lg font-black text-[#14233b]">
+                                Obtener datos de este PC con Windows
+                            </h3>
+                            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                                Descarga y ejecuta el recolector temporal. El formulario se completará cuando SIGETIC reciba el inventario técnico.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-slate-500">
+                                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-[#006b2e]" />Sin contraseñas</span>
+                                <span className="inline-flex items-center gap-1.5"><Laptop className="h-4 w-4 text-[#006b2e]" />Windows 10 y 11</span>
+                                <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-[#006b2e]" />Código de un solo uso</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => void startDetection()}
+                        disabled={detectionState === "creating" || detectionState === "waiting"}
+                        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#006b2e] px-5 text-sm font-black text-white shadow-lg shadow-green-900/15 transition hover:bg-[#0b8f3a] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {detectionState === "creating" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        {detectionState === "creating" ? "Preparando..." : "Detectar este equipo"}
+                    </button>
+                </div>
+
+                {detectionState === "waiting" ? (
+                    <div className="border-t border-green-100 bg-green-50/60 px-5 py-4">
+                        <div className="flex items-start gap-3">
+                            <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-[#006b2e]" />
+                            <div className="min-w-0 flex-1">
+                                <p className="font-black text-[#14233b]">Esperando los datos del computador</p>
+                                <p className="mt-1 text-sm text-slate-600">Abre PowerShell y ejecuta el siguiente comando. Esta pantalla se actualizará automáticamente.</p>
+                                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                                    <code className="min-w-0 flex-1 overflow-x-auto rounded-xl bg-[#14233b] px-4 py-3 text-xs text-white">{getCollectorCommand(collectorFileName)}</code>
+                                    <button type="button" onClick={() => void copyCollectorCommand()} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-green-200 bg-white px-4 text-xs font-black text-[#006b2e] hover:bg-green-50">
+                                        <Copy className="h-4 w-4" />{commandCopied ? "Copiado" : "Copiar"}
+                                    </button>
+                                    <button type="button" onClick={() => void downloadCollectorAgain()} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-green-200 bg-white px-4 text-xs font-black text-[#006b2e] hover:bg-green-50">
+                                        <Download className="h-4 w-4" />Descargar otra vez
+                                    </button>
+                                </div>
+                                <p className="mt-2 text-xs font-bold text-slate-500">La vinculación vence a las {detectionSession ? new Date(detectionSession.expiraUtc).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }) : ""}.</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
+
+                {detectionState === "received" ? (
+                    <div className="flex items-start gap-3 border-t border-green-100 bg-green-50 px-5 py-4 text-sm text-[#006b2e]">
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                        <div><p className="font-black">Datos técnicos recibidos y cargados</p><p className="mt-1 text-slate-600">Revisa los campos, completa código interno, ubicación, dependencia y funcionario, y guarda el equipo.</p></div>
+                    </div>
+                ) : null}
+
+                {detectionState === "duplicate" && existingEquipmentId ? (
+                    <div className="flex flex-col gap-3 border-t border-yellow-200 bg-yellow-50 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-700" /><div><p className="font-black text-[#14233b]">Este serial ya está registrado</p><p className="mt-1 text-slate-600">No se cargaron los datos para evitar crear una ficha duplicada.</p></div></div>
+                        <Link href={`/inventario/${existingEquipmentId}`} className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-yellow-300 bg-white px-4 text-xs font-black text-yellow-800 hover:bg-yellow-100"><ExternalLink className="h-4 w-4" />Ver equipo existente</Link>
+                    </div>
+                ) : null}
+
+                {detectionState === "expired" ? (
+                    <div className="flex items-start gap-3 border-t border-yellow-200 bg-yellow-50 px-5 py-4 text-sm"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-700" /><div><p className="font-black text-[#14233b]">La detección venció</p><p className="mt-1 text-slate-600">Pulsa Detectar este equipo para generar un recolector nuevo.</p></div></div>
+                ) : null}
+
+                {detectionState === "error" || detectionError ? (
+                    <div role="alert" className="flex items-start gap-3 border-t border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-black">No se completó la detección</p><p className="mt-1">{detectionError}</p></div></div>
+                ) : null}
             </section>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

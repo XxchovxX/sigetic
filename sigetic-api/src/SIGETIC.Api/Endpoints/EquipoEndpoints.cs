@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using SIGETIC.Application.Equipos;
 
 namespace SIGETIC.Api.Endpoints;
@@ -67,6 +69,79 @@ public static class EquipoEndpoints
             }
         })
         .RequireAuthorization("TecnicoEscritura");
+
+        group.MapPost("/detecciones", async (
+            ClaimsPrincipal user,
+            IInventarioDeteccionService deteccionService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var deteccion = await deteccionService.CreateAsync(
+                    GetUserId(user),
+                    cancellationToken);
+
+                return Results.Created(
+                    $"/api/equipos/detecciones/{deteccion.Id}",
+                    deteccion);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+        })
+        .RequireAuthorization("TecnicoEscritura");
+
+        group.MapGet("/detecciones/{id:guid}", async (
+            Guid id,
+            ClaimsPrincipal user,
+            IInventarioDeteccionService deteccionService,
+            CancellationToken cancellationToken) =>
+        {
+            var deteccion = await deteccionService.GetStatusAsync(
+                id,
+                GetUserId(user),
+                cancellationToken);
+
+            return deteccion is null
+                ? Results.NotFound(new { message = "No se encontro la deteccion solicitada." })
+                : Results.Ok(deteccion);
+        })
+        .RequireAuthorization("TecnicoEscritura");
+
+        group.MapPost("/detecciones/reportar", async (
+            ReportarInventarioDeteccionRequest request,
+            HttpContext httpContext,
+            IInventarioDeteccionService deteccionService,
+            CancellationToken cancellationToken) =>
+        {
+            var token = httpContext.Request.Headers["X-SIGETIC-Collector-Token"].ToString();
+
+            try
+            {
+                await deteccionService.ReceiveAsync(
+                    token,
+                    request,
+                    httpContext.Connection.RemoteIpAddress?.ToString(),
+                    cancellationToken);
+
+                return Results.Ok(new
+                {
+                    message = "Inventario tecnico recibido correctamente. Regresa a SIGETIC para revisar los datos."
+                });
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                return Results.Json(
+                    new { message = exception.Message },
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Results.Conflict(new { message = exception.Message });
+            }
+        })
+        .AllowAnonymous();
 
         group.MapPut("/{id:guid}", async (
             Guid id,
@@ -208,5 +283,15 @@ public static class EquipoEndpoints
         .RequireAuthorization("TecnicoEscritura");
 
         return app;
+    }
+
+    private static Guid GetUserId(ClaimsPrincipal user)
+    {
+        var value = user.FindFirstValue("usuario_id") ??
+            user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        return Guid.TryParse(value, out var id)
+            ? id
+            : throw new InvalidOperationException("No se pudo identificar el usuario autenticado.");
     }
 }

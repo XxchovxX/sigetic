@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
 
         services.AddScoped<IEquipoService, EquipoService>();
+        services.AddScoped<IInventarioDeteccionService, InventarioDeteccionService>();
         services.AddScoped<IMantenimientoEquipoService, MantenimientoEquipoService>();
         services.AddScoped<IBajaEquipoService, BajaEquipoService>();
         services.AddScoped<IAdministracionService, AdministracionService>();

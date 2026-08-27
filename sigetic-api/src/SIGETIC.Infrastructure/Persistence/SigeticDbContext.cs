@@ -21,6 +21,7 @@ public sealed class SigeticDbContext : DbContext
     }
 
     public DbSet<Equipo> Equipos => Set<Equipo>();
+    public DbSet<InventarioDeteccion> InventarioDetecciones => Set<InventarioDeteccion>();
     public DbSet<MantenimientoEquipo> MantenimientosEquipo => Set<MantenimientoEquipo>();
     public DbSet<BajaEquipo> BajasEquipo => Set<BajaEquipo>();
 
@@ -64,6 +65,7 @@ public sealed class SigeticDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SigeticDbContext).Assembly);
 
         ConfigureEquipos(modelBuilder);
+        ConfigureInventarioDetecciones(modelBuilder);
         ConfigureMantenimientosEquipo(modelBuilder);
         ConfigureBajasEquipo(modelBuilder);
         ConfigureTicketsMesaAyuda(modelBuilder);
@@ -142,7 +144,7 @@ public sealed class SigeticDbContext : DbContext
     {
         return entityName switch
         {
-            nameof(Equipo) or nameof(MantenimientoEquipo) or nameof(BajaEquipo) => "Inventario TIC",
+            nameof(Equipo) or nameof(InventarioDeteccion) or nameof(MantenimientoEquipo) or nameof(BajaEquipo) => "Inventario TIC",
             nameof(Impresora) or nameof(MantenimientoImpresora) or nameof(HistorialConsumibleImpresora) => "Impresoras",
             nameof(ProgramacionMantenimiento) => "Programador de mantenimientos",
             nameof(Consumible) or nameof(MovimientoConsumible) => "Consumibles",
@@ -484,6 +486,63 @@ public sealed class SigeticDbContext : DbContext
                 .IsUnique();
 
             entity.HasIndex(e => e.FechaBaja);
+        });
+    }
+
+    private static void ConfigureInventarioDetecciones(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InventarioDeteccion>(entity =>
+        {
+            entity.ToTable("inventario_detecciones");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.UsuarioId)
+                .HasColumnName("usuario_id")
+                .IsRequired();
+
+            entity.Property(e => e.TokenHash)
+                .HasColumnName("token_hash")
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.Estado)
+                .HasColumnName("estado")
+                .HasMaxLength(30)
+                .IsConcurrencyToken()
+                .IsRequired();
+
+            entity.Property(e => e.DatosJson)
+                .HasColumnName("datos_json")
+                .HasColumnType("jsonb");
+
+            entity.Property(e => e.DireccionIpOrigen)
+                .HasColumnName("direccion_ip_origen")
+                .HasMaxLength(80);
+
+            entity.Property(e => e.FechaCreacionUtc)
+                .HasColumnName("fecha_creacion_utc")
+                .IsRequired();
+
+            entity.Property(e => e.ExpiraUtc)
+                .HasColumnName("expira_utc")
+                .IsRequired();
+
+            entity.Property(e => e.FechaRecepcionUtc)
+                .HasColumnName("fecha_recepcion_utc");
+
+            entity.HasOne(e => e.Usuario)
+                .WithMany()
+                .HasForeignKey(e => e.UsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.TokenHash)
+                .IsUnique();
+            entity.HasIndex(e => new { e.UsuarioId, e.FechaCreacionUtc });
+            entity.HasIndex(e => e.ExpiraUtc);
         });
     }
 

@@ -9,6 +9,7 @@ SIGETIC centraliza la mesa de ayuda, inventario tecnologico, hojas de vida de eq
 - Dashboard institucional.
 - Mesa de ayuda y tickets.
 - Inventario de equipos TIC.
+- Deteccion automatica de hardware para Windows 10 y 11.
 - Hojas de vida de equipos.
 - Impresoras y mantenimientos.
 - Consumibles y control de stock.
@@ -24,6 +25,12 @@ Los manuales operativos se encuentran en:
 
 ```text
 docs/manuales/README.md
+```
+
+La guia del recolector automatico se encuentra en:
+
+```text
+docs/RECOLECTOR_INVENTARIO_WINDOWS.md
 ```
 
 ## Estructura del proyecto
