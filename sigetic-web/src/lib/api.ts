@@ -23,9 +23,18 @@ export type Equipo = {
     fechaCreacionUtc: string;
 };
 
-export type CrearEquipoPayload = Omit<Equipo, "id" | "fechaCreacionUtc">;
+export type CrearEquipoPayload = Omit<Equipo, "id" | "fechaCreacionUtc"> & {
+    generarCodigoAutomatico?: boolean;
+};
 
-export type ActualizarEquipoPayload = CrearEquipoPayload;
+export type ActualizarEquipoPayload = Omit<CrearEquipoPayload, "generarCodigoAutomatico">;
+
+export type CodigoEquipoSugerido = {
+    codigo: string;
+    prefijoTipo: string;
+    codigoDependencia: string;
+    esEstimado: boolean;
+};
 
 export type MantenimientoEquipo = {
     id: string;
@@ -217,4 +226,21 @@ export async function createBajaEquipo(
     });
 
     return handleResponse<BajaEquipo>(response);
+}
+
+export async function getCodigoEquipoSugerido(
+    tipoEquipo: string,
+    dependencia: string
+): Promise<CodigoEquipoSugerido> {
+    const query = new URLSearchParams({ tipoEquipo, dependencia });
+    const response = await fetch(
+        `${getApiUrl()}/api/equipos/codigo-sugerido?${query.toString()}`,
+        {
+            method: "GET",
+            headers: getAuthorizedHeaders(),
+            cache: "no-store",
+        }
+    );
+
+    return handleResponse<CodigoEquipoSugerido>(response);
 }

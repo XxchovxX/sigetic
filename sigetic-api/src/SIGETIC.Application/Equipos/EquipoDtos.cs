@@ -17,7 +17,15 @@ public sealed record CrearEquipoRequest(
     string? DireccionMac,
     string UbicacionFisica,
     DateOnly FechaIngreso,
-    string? Observaciones
+    string? Observaciones,
+    bool GenerarCodigoAutomatico = false
+);
+
+public sealed record CodigoEquipoSugeridoResponse(
+    string Codigo,
+    string PrefijoTipo,
+    string CodigoDependencia,
+    bool EsEstimado
 );
 
 public sealed record ActualizarEquipoRequest(

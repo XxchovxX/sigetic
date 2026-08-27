@@ -8,6 +8,11 @@ public interface IEquipoService
         Guid id,
         CancellationToken cancellationToken);
 
+    Task<CodigoEquipoSugeridoResponse> GetCodigoSugeridoAsync(
+        string tipoEquipo,
+        string dependencia,
+        CancellationToken cancellationToken);
+
     Task<EquipoResponse> CreateAsync(
         CrearEquipoRequest request,
         CancellationToken cancellationToken);

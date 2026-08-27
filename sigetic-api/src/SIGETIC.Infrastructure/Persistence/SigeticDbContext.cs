@@ -21,6 +21,7 @@ public sealed class SigeticDbContext : DbContext
     }
 
     public DbSet<Equipo> Equipos => Set<Equipo>();
+    public DbSet<SecuenciaCodigoEquipo> SecuenciasCodigoEquipo => Set<SecuenciaCodigoEquipo>();
     public DbSet<InventarioDeteccion> InventarioDetecciones => Set<InventarioDeteccion>();
     public DbSet<MantenimientoEquipo> MantenimientosEquipo => Set<MantenimientoEquipo>();
     public DbSet<BajaEquipo> BajasEquipo => Set<BajaEquipo>();
@@ -65,6 +66,7 @@ public sealed class SigeticDbContext : DbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SigeticDbContext).Assembly);
 
         ConfigureEquipos(modelBuilder);
+        ConfigureSecuenciasCodigoEquipo(modelBuilder);
         ConfigureInventarioDetecciones(modelBuilder);
         ConfigureMantenimientosEquipo(modelBuilder);
         ConfigureBajasEquipo(modelBuilder);
@@ -486,6 +488,26 @@ public sealed class SigeticDbContext : DbContext
                 .IsUnique();
 
             entity.HasIndex(e => e.FechaBaja);
+        });
+    }
+
+    private static void ConfigureSecuenciasCodigoEquipo(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<SecuenciaCodigoEquipo>(entity =>
+        {
+            entity.ToTable("secuencias_codigo_equipo");
+
+            entity.HasKey(e => e.Clave);
+
+            entity.Property(e => e.Clave)
+                .HasColumnName("clave")
+                .HasMaxLength(30);
+
+            entity.Property(e => e.UltimoNumero)
+                .HasColumnName("ultimo_numero");
+
+            entity.Property(e => e.FechaActualizacionUtc)
+                .HasColumnName("fecha_actualizacion_utc");
         });
     }
 

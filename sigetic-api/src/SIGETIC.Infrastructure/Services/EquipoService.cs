@@ -1,4 +1,8 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 using SIGETIC.Application.Equipos;
 using SIGETIC.Domain.Entities;
 using SIGETIC.Infrastructure.Persistence;
@@ -35,12 +39,90 @@ public sealed class EquipoService : IEquipoService
         return equipo is null ? null : ToResponse(equipo);
     }
 
+    public async Task<CodigoEquipoSugeridoResponse> GetCodigoSugeridoAsync(
+        string tipoEquipo,
+        string dependencia,
+        CancellationToken cancellationToken)
+    {
+        var segmentos = await ResolveCodeSegmentsAsync(
+            tipoEquipo,
+            dependencia,
+            cancellationToken);
+        int nextNumber = await _dbContext.SecuenciasCodigoEquipo
+            .AsNoTracking()
+            .Where(sequence => sequence.Clave == segmentos.Key)
+            .Select(sequence => sequence.UltimoNumero + 1)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (nextNumber <= 0)
+            nextNumber = 1;
+
+        string code = FormatCode(segmentos, nextNumber);
+
+        while (await _dbContext.Equipos
+            .AsNoTracking()
+            .AnyAsync(equipment => equipment.CodigoInterno == code, cancellationToken))
+        {
+            nextNumber++;
+            code = FormatCode(segmentos, nextNumber);
+        }
+
+        return new CodigoEquipoSugeridoResponse(
+            code,
+            segmentos.TypePrefix,
+            segmentos.DependencyCode,
+            true);
+    }
+
     public async Task<EquipoResponse> CreateAsync(
         CrearEquipoRequest request,
         CancellationToken cancellationToken)
     {
-        ValidateRequest(
+        if (request.GenerarCodigoAutomatico)
+        {
+            ValidateRequest(
+                "CODIGO-AUTOMATICO",
+                request.TipoEquipo,
+                request.Marca,
+                request.Modelo,
+                request.Serial,
+                request.Dependencia,
+                request.FuncionarioAsignado,
+                request.Estado,
+                request.Procesador,
+                request.MemoriaRam,
+                request.Almacenamiento,
+                request.SistemaOperativo,
+                request.UbicacionFisica);
+
+            await using var transaction = await _dbContext.Database
+                .BeginTransactionAsync(cancellationToken);
+            string generatedCode = await GenerateNextCodeAsync(
+                request.TipoEquipo,
+                request.Dependencia,
+                cancellationToken);
+            var created = await CreateWithCodeAsync(
+                request,
+                generatedCode,
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return created;
+        }
+
+        return await CreateWithCodeAsync(
+            request,
             request.CodigoInterno,
+            cancellationToken);
+    }
+
+    private async Task<EquipoResponse> CreateWithCodeAsync(
+        CrearEquipoRequest request,
+        string codigoInterno,
+        CancellationToken cancellationToken)
+    {
+        ValidateRequest(
+            codigoInterno,
             request.TipoEquipo,
             request.Marca,
             request.Modelo,
@@ -56,7 +138,7 @@ public sealed class EquipoService : IEquipoService
 
         bool existsByCode = await _dbContext.Equipos
             .AnyAsync(
-                e => e.CodigoInterno == request.CodigoInterno.Trim(),
+                e => e.CodigoInterno == codigoInterno.Trim(),
                 cancellationToken);
 
         if (existsByCode)
@@ -77,7 +159,7 @@ public sealed class EquipoService : IEquipoService
         }
 
         var equipo = new Equipo(
-            request.CodigoInterno,
+            codigoInterno,
             request.TipoEquipo,
             request.Marca,
             request.Modelo,
@@ -101,6 +183,159 @@ public sealed class EquipoService : IEquipoService
 
         return ToResponse(equipo);
     }
+
+    private async Task<string> GenerateNextCodeAsync(
+        string tipoEquipo,
+        string dependencia,
+        CancellationToken cancellationToken)
+    {
+        var segments = await ResolveCodeSegmentsAsync(
+            tipoEquipo,
+            dependencia,
+            cancellationToken);
+
+        while (true)
+        {
+            int nextNumber = await IncrementSequenceAsync(
+                segments.Key,
+                cancellationToken);
+            string code = FormatCode(segments, nextNumber);
+            bool alreadyExists = await _dbContext.Equipos
+                .AsNoTracking()
+                .AnyAsync(equipment => equipment.CodigoInterno == code, cancellationToken);
+
+            if (!alreadyExists)
+                return code;
+        }
+    }
+
+    private async Task<int> IncrementSequenceAsync(
+        string key,
+        CancellationToken cancellationToken)
+    {
+        var connection = (NpgsqlConnection)_dbContext.Database.GetDbConnection();
+        var transaction = (NpgsqlTransaction?)_dbContext.Database
+            .CurrentTransaction?
+            .GetDbTransaction();
+
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO secuencias_codigo_equipo (clave, ultimo_numero, fecha_actualizacion_utc)
+            VALUES (@clave, 1, @fecha_actualizacion_utc)
+            ON CONFLICT (clave) DO UPDATE
+            SET ultimo_numero = secuencias_codigo_equipo.ultimo_numero + 1,
+                fecha_actualizacion_utc = EXCLUDED.fecha_actualizacion_utc
+            RETURNING ultimo_numero;
+            """,
+            connection,
+            transaction);
+        command.Parameters.AddWithValue("clave", key);
+        command.Parameters.AddWithValue("fecha_actualizacion_utc", DateTime.UtcNow);
+
+        object? result = await command.ExecuteScalarAsync(cancellationToken);
+
+        return Convert.ToInt32(result, CultureInfo.InvariantCulture);
+    }
+
+    private async Task<CodeSegments> ResolveCodeSegmentsAsync(
+        string tipoEquipo,
+        string dependencia,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(tipoEquipo))
+            throw new ArgumentException("Seleccione el tipo de equipo.");
+
+        if (string.IsNullOrWhiteSpace(dependencia))
+            throw new ArgumentException("Seleccione la dependencia.");
+
+        string requestedDependency = NormalizeLookup(dependencia);
+        var activeDependencies = await _dbContext.Dependencias
+            .AsNoTracking()
+            .Where(item => item.Activa)
+            .Select(item => new { item.Nombre, item.Codigo })
+            .ToListAsync(cancellationToken);
+        var dependency = activeDependencies.FirstOrDefault(item =>
+            NormalizeLookup(item.Nombre) == requestedDependency ||
+            NormalizeLookup(item.Codigo) == requestedDependency);
+
+        if (dependency is null)
+        {
+            throw new ArgumentException(
+                "La dependencia seleccionada no existe o está inactiva. Actualice el catálogo e inténtelo de nuevo.");
+        }
+
+        string typePrefix = GetTypePrefix(tipoEquipo);
+        string dependencyCode = SanitizeSegment(dependency.Codigo, 8);
+
+        if (string.IsNullOrWhiteSpace(dependencyCode))
+            throw new ArgumentException("La dependencia no tiene un código válido configurado.");
+
+        return new CodeSegments(
+            typePrefix,
+            dependencyCode,
+            $"{typePrefix}-ALC-{dependencyCode}");
+    }
+
+    private static string GetTypePrefix(string tipoEquipo)
+    {
+        return NormalizeLookup(tipoEquipo).ToUpperInvariant() switch
+        {
+            "COMPUTADOR DE ESCRITORIO" => "PC",
+            "PORTATIL" => "PT",
+            "SERVIDOR" => "SRV",
+            "MONITOR" => "MON",
+            "SWITCH" => "SW",
+            "ROUTER" => "RTR",
+            "ACCESS POINT" => "AP",
+            "UPS" => "UPS",
+            "OTRO" => "EQ",
+            _ => "EQ"
+        };
+    }
+
+    private static string FormatCode(CodeSegments segments, int number) =>
+        $"{segments.TypePrefix}-ALC-{segments.DependencyCode}-{number:D3}";
+
+    private static string SanitizeSegment(string value, int maxLength)
+    {
+        string sanitized = new(
+            NormalizeLookup(value)
+                .ToUpperInvariant()
+                .Where(char.IsLetterOrDigit)
+                .Take(maxLength)
+                .ToArray());
+
+        return sanitized;
+    }
+
+    private static string NormalizeLookup(string value)
+    {
+        string normalized = (value ?? string.Empty)
+            .Trim()
+            .Normalize(NormalizationForm.FormD);
+        var result = new StringBuilder(normalized.Length);
+
+        foreach (char character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+                result.Append(char.ToUpperInvariant(character));
+        }
+
+        return string.Join(
+            ' ',
+            result
+                .ToString()
+                .Normalize(NormalizationForm.FormC)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private sealed record CodeSegments(
+        string TypePrefix,
+        string DependencyCode,
+        string Key);
 
     public async Task<EquipoResponse> UpdateAsync(
         Guid id,

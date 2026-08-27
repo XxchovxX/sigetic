@@ -22,6 +22,25 @@ public static class EquipoEndpoints
             return Results.Ok(equipos);
         });
 
+        group.MapGet("/codigo-sugerido", async (
+            string tipoEquipo,
+            string dependencia,
+            IEquipoService equipoService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                return Results.Ok(await equipoService.GetCodigoSugeridoAsync(
+                    tipoEquipo,
+                    dependencia,
+                    cancellationToken));
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(new { message = exception.Message });
+            }
+        });
+
         group.MapGet("/{id:guid}", async (
             Guid id,
             IEquipoService equipoService,

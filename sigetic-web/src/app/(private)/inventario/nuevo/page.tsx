@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     ArrowLeft,
@@ -23,7 +23,8 @@ import {
     UserRound,
 } from "lucide-react";
 import { z } from "zod";
-import { createEquipo } from "@/lib/api";
+import { createEquipo, getCodigoEquipoSugerido } from "@/lib/api";
+import { getPerfilDependencias, type PerfilDependencia } from "@/lib/auth";
 import {
     crearInventarioDeteccion,
     descargarRecolectorWindows,
@@ -62,19 +63,6 @@ type DetectionState =
     | "duplicate"
     | "expired"
     | "error";
-
-const dependencies = [
-    "Despacho Municipal",
-    "Secretaria de Planeacion",
-    "Secretaria de Gobierno",
-    "Secretaria Administrativa y Financiera",
-    "Control Interno",
-    "Juridica",
-    "Comisaria de Familia",
-    "Inspeccion de Policia",
-    "Almacen",
-    "Sistemas",
-];
 
 const equipmentTypes = [
     "Computador de escritorio",
@@ -138,12 +126,18 @@ export default function NewEquipmentPage() {
     const [existingEquipmentId, setExistingEquipmentId] = useState<string | null>(null);
     const [commandCopied, setCommandCopied] = useState(false);
     const [collectorFileName, setCollectorFileName] = useState("");
+    const [dependencies, setDependencies] = useState<PerfilDependencia[]>([]);
+    const [dependenciesError, setDependenciesError] = useState("");
+    const [isCodeLoading, setIsCodeLoading] = useState(false);
+    const [codeError, setCodeError] = useState("");
 
     const {
         register,
+        control,
         handleSubmit,
         getValues,
         reset,
+        setValue,
         formState: { errors, isSubmitting },
     } = useForm<EquipmentFormValues>({
         resolver: zodResolver(equipmentSchema),
@@ -167,6 +161,75 @@ export default function NewEquipmentPage() {
             observaciones: "",
         },
     });
+    const [selectedEquipmentType, selectedDependency] = useWatch({
+        control,
+        name: ["tipoEquipo", "dependencia"],
+    });
+
+    useEffect(() => {
+        let cancelled = false;
+
+        getPerfilDependencias()
+            .then((items) => {
+                if (cancelled) return;
+                setDependencies(items);
+                setDependenciesError("");
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                setDependenciesError(
+                    error instanceof Error
+                        ? error.message
+                        : "No fue posible cargar las dependencias."
+                );
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!selectedEquipmentType || !selectedDependency) {
+            setValue("codigoInterno", "");
+            setCodeError("");
+            setIsCodeLoading(false);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        setValue("codigoInterno", "");
+        setIsCodeLoading(true);
+        setCodeError("");
+
+        getCodigoEquipoSugerido(selectedEquipmentType, selectedDependency)
+            .then((suggestion) => {
+                if (cancelled) return;
+                setValue("codigoInterno", suggestion.codigo, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                });
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                setValue("codigoInterno", "");
+                setCodeError(
+                    error instanceof Error
+                        ? error.message
+                        : "No fue posible generar el código."
+                );
+            })
+            .finally(() => {
+                if (!cancelled) setIsCodeLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedDependency, selectedEquipmentType, setValue]);
 
     const applyDetectedData = useCallback((data: DatosInventarioDetectados) => {
         const current = getValues();
@@ -317,6 +380,7 @@ export default function NewEquipmentPage() {
             ubicacionFisica: data.ubicacionFisica,
             fechaIngreso: data.fechaIngreso,
             observaciones: data.observaciones || null,
+            generarCodigoAutomatico: true,
         });
 
         router.push(`/inventario/${created.id}`);
@@ -415,7 +479,7 @@ export default function NewEquipmentPage() {
                 {detectionState === "received" ? (
                     <div className="flex items-start gap-3 border-t border-green-100 bg-green-50 px-5 py-4 text-sm text-[#006b2e]">
                         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-                        <div><p className="font-black">Datos técnicos recibidos y cargados</p><p className="mt-1 text-slate-600">Revisa los campos, completa código interno, ubicación, dependencia y funcionario, y guarda el equipo.</p></div>
+                        <div><p className="font-black">Datos técnicos recibidos y cargados</p><p className="mt-1 text-slate-600">Revisa los campos, completa ubicación, dependencia y funcionario. SIGETIC asignará el código interno.</p></div>
                     </div>
                 ) : null}
 
@@ -444,14 +508,6 @@ export default function NewEquipmentPage() {
                     />
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <Field label="Codigo interno" error={errors.codigoInterno?.message}>
-                            <input
-                                {...register("codigoInterno")}
-                                placeholder="Ej: TIC-PLA-001"
-                                className={inputClass}
-                            />
-                        </Field>
-
                         <Field label="Tipo de equipo" error={errors.tipoEquipo?.message}>
                             <select {...register("tipoEquipo")} className={inputClass}>
                                 {equipmentTypes.map((item) => (
@@ -579,16 +635,39 @@ export default function NewEquipmentPage() {
                         description="Dependencia y funcionario responsable del activo."
                     />
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <Field label="Dependencia" error={errors.dependencia?.message}>
                             <select {...register("dependencia")} className={inputClass}>
                                 <option value="">Seleccione...</option>
                                 {dependencies.map((item) => (
-                                    <option key={item} value={item}>
-                                        {item}
+                                    <option key={item.id} value={item.nombre}>
+                                        {item.nombre} ({item.codigo})
                                     </option>
                                 ))}
                             </select>
+                            {dependenciesError ? (
+                                <span className="mt-2 block text-xs font-bold text-red-600">
+                                    {dependenciesError}
+                                </span>
+                            ) : null}
+                        </Field>
+
+                        <Field label="Código interno automático" error={errors.codigoInterno?.message || codeError}>
+                            <div className="relative">
+                                <input
+                                    {...register("codigoInterno")}
+                                    readOnly
+                                    aria-readonly="true"
+                                    placeholder="Selecciona una dependencia"
+                                    className={`${inputClass} bg-slate-50 pr-11 font-bold text-[#14233b]`}
+                                />
+                                {isCodeLoading ? (
+                                    <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#006b2e]" />
+                                ) : null}
+                            </div>
+                            <span className="mt-2 block text-xs text-slate-500">
+                                El consecutivo definitivo se confirma al guardar.
+                            </span>
                         </Field>
 
                         <Field
@@ -636,11 +715,11 @@ export default function NewEquipmentPage() {
 
                             <button
                                 type="submit"
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || isCodeLoading}
                                 className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#006b2e] to-[#0b8f3a] px-5 text-sm font-black text-white shadow-lg shadow-green-900/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
                             >
                                 <Save className="h-4 w-4" />
-                                {isSubmitting ? "Guardando..." : "Guardar equipo"}
+                                {isSubmitting ? "Guardando..." : isCodeLoading ? "Generando código..." : "Guardar equipo"}
                             </button>
                         </div>
                     </div>
