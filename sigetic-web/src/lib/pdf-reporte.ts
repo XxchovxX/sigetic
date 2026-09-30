@@ -13,6 +13,7 @@ type ExportInstitutionalReportInput<T> = {
     columns: PdfColumn<T>[];
     rows: T[];
     subtitle?: string;
+    maxCellLines?: number;
 };
 
 async function imageToDataUrl(path: string): Promise<string | null> {
@@ -119,6 +120,7 @@ export async function exportInstitutionalReportPdf<T>({
     columns,
     rows,
     subtitle,
+    maxCellLines = 2,
 }: ExportInstitutionalReportInput<T>) {
     const doc = new jsPDF({ unit: "mm", format: "letter", orientation: "landscape" });
     const logo = await imageToDataUrl("/pdf/escudo-san-carlos.png");
@@ -190,7 +192,8 @@ export async function exportInstitutionalReportPdf<T>({
         rows.forEach((row, rowIndex) => {
             const values = columns.map((column, index) => {
                 const text = safe(column.value(row));
-                return doc.splitTextToSize(text, widths[index] - 4).slice(0, 2);
+                const lines = doc.splitTextToSize(text, widths[index] - 4);
+                return maxCellLines > 0 ? lines.slice(0, maxCellLines) : lines;
             });
             const rowHeight = Math.max(7.5, ...values.map((value) => value.length * 3.5 + 3));
 
