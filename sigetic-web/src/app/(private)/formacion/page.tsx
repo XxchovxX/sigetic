@@ -42,6 +42,7 @@ import {
     type TipoPreguntaFormacion,
 } from "@/lib/formacion-api";
 import { descargarCertificadoFormacionPdf } from "@/lib/pdf-certificado-formacion";
+import ParticipantesCurso from "@/components/formacion/participantes-curso";
 
 type MaterialForm = {
     titulo: string;
@@ -1109,6 +1110,10 @@ export default function FormacionPage() {
                                     value={String(selectedCurso.preguntas.length)}
                                 />
                             </div>
+
+                            {canManage ? (
+                                <ParticipantesCurso key={selectedCurso.id} cursoId={selectedCurso.id} titulo={selectedCurso.titulo} />
+                            ) : null}
 
                             <section>
                                 <div className="flex items-end justify-between gap-3">

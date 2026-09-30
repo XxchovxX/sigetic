@@ -1,6 +1,25 @@
 import { getApiUrl } from "@/lib/api-url";
 import { getToken } from "@/lib/auth";
 
+export type ParticipacionCursoFormacion = {
+    usuarioId: string;
+    nombreCompleto: string;
+    correo: string;
+    dependencia?: string | null;
+    cargo?: string | null;
+    tipoVinculacion?: string | null;
+    numeroIntentos: number;
+    mejorPuntaje: number;
+    aprobado: boolean;
+    fechaResultadoUtc: string;
+    ultimaPresentacionUtc: string;
+    codigoCertificado?: string | null;
+};
+
+export async function getParticipantesCursoFormacion(id: string): Promise<ParticipacionCursoFormacion[]> {
+    return apiFetch<ParticipacionCursoFormacion[]>(`/api/formacion/cursos/${id}/participantes`);
+}
+
 export type FormacionMaterial = {
     id: string;
     titulo: string;

@@ -17,6 +17,60 @@ public sealed class FormacionService : IFormacionService
         _dbContext = dbContext;
     }
 
+    public async Task<IReadOnlyList<ParticipacionCursoFormacionResponse>?> GetParticipacionesCursoAsync(
+        Guid cursoId,
+        CancellationToken cancellationToken)
+    {
+        if (!await _dbContext.FormacionCursos.AnyAsync(e => e.Id == cursoId, cancellationToken))
+            return null;
+
+        var intentos = await _dbContext.FormacionIntentos
+            .AsNoTracking()
+            .Where(e => e.CursoId == cursoId)
+            .Select(e => new
+            {
+                e.Id, e.UsuarioId, e.ParticipanteNombre, e.ParticipanteCorreo,
+                e.Puntaje, e.Aprobado, e.FechaPresentacionUtc, e.CodigoCertificado
+            })
+            .ToListAsync(cancellationToken);
+
+        var usuarioIds = intentos.Select(e => e.UsuarioId).Distinct().ToList();
+        var usuarios = await _dbContext.Usuarios
+            .AsNoTracking()
+            .Where(e => usuarioIds.Contains(e.Id))
+            .Select(e => new
+            {
+                e.Id, e.NombreCompleto, e.Correo, e.Cargo, e.TipoVinculacion,
+                Dependencia = e.Dependencia != null ? e.Dependencia.Nombre : null
+            })
+            .ToDictionaryAsync(e => e.Id, cancellationToken);
+
+        return intentos.GroupBy(e => e.UsuarioId).Select(grupo =>
+        {
+            // Conservar una aprobacion previa aunque despues exista un intento fallido.
+            var mejor = grupo.OrderByDescending(e => e.Aprobado)
+                .ThenByDescending(e => e.Puntaje)
+                .ThenByDescending(e => e.FechaPresentacionUtc)
+                .ThenBy(e => e.Id)
+                .First();
+            var usuario = usuarios.GetValueOrDefault(grupo.Key);
+
+            return new ParticipacionCursoFormacionResponse(
+                grupo.Key,
+                usuario?.NombreCompleto ?? mejor.ParticipanteNombre,
+                usuario?.Correo ?? mejor.ParticipanteCorreo,
+                usuario?.Dependencia,
+                usuario?.Cargo,
+                usuario?.TipoVinculacion,
+                grupo.Count(),
+                mejor.Puntaje,
+                mejor.Aprobado,
+                mejor.FechaPresentacionUtc,
+                grupo.Max(e => e.FechaPresentacionUtc),
+                mejor.CodigoCertificado);
+        }).OrderBy(e => e.NombreCompleto).ThenBy(e => e.UsuarioId).ToList();
+    }
+
     public async Task<DestinatariosFormacionResponse> GetDestinatariosAsync(
         CancellationToken cancellationToken)
     {

@@ -19,6 +19,18 @@ public static class FormacionEndpoints
             Results.Ok(await service.GetDestinatariosAsync(cancellationToken)))
         .RequireAuthorization("FormacionGestion");
 
+        group.MapGet("/cursos/{id:guid}/participantes", async (
+            Guid id,
+            IFormacionService service,
+            CancellationToken cancellationToken) =>
+        {
+            var participantes = await service.GetParticipacionesCursoAsync(id, cancellationToken);
+            return participantes is null
+                ? Results.NotFound(new { message = "No se encontro la capacitacion solicitada." })
+                : Results.Ok(participantes);
+        })
+        .RequireAuthorization("FormacionGestion");
+
         group.MapGet("/cursos", async (
             ClaimsPrincipal user,
             IFormacionService service,

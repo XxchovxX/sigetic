@@ -1,5 +1,20 @@
 namespace SIGETIC.Application.Formacion;
 
+public sealed record ParticipacionCursoFormacionResponse(
+    Guid UsuarioId,
+    string NombreCompleto,
+    string Correo,
+    string? Dependencia,
+    string? Cargo,
+    string? TipoVinculacion,
+    int NumeroIntentos,
+    int MejorPuntaje,
+    bool Aprobado,
+    DateTime FechaResultadoUtc,
+    DateTime UltimaPresentacionUtc,
+    string? CodigoCertificado
+);
+
 public sealed record CrearCursoFormacionRequest(
     string Titulo,
     string Descripcion,
