@@ -7,6 +7,13 @@ public static class AdministracionEndpoints
     public static IEndpointRouteBuilder MapAdministracionEndpoints(
         this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/usuarios", async (
+            IAdministracionService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetUsuariosAsync(cancellationToken)))
+            .WithTags("Administracion")
+            .RequireAuthorization("UsuariosLectura");
+
         var group = app.MapGroup("/api/administracion")
             .WithTags("Administracion")
             .RequireAuthorization("Administracion");

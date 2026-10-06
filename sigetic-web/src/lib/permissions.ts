@@ -50,6 +50,14 @@ export function canManageUsers(user: AuthUser | null) {
     return hasRole(user, [ROLES.admin]);
 }
 
+export function canViewUsers(user: AuthUser | null) {
+    return hasRole(user, [ROLES.admin, ROLES.safAssistant]);
+}
+
+export function canViewTrainingReports(user: AuthUser | null) {
+    return canManageFormacion(user) || hasRole(user, [ROLES.safAssistant]);
+}
+
 export function canManageTechnicalAssets(user: AuthUser | null) {
     return hasRole(user, technicalRoles);
 }
@@ -99,6 +107,8 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
             ROLES.readOnly,
         ]);
     }
+
+    if (pathname === "/configuracion/usuarios") return canViewUsers(user);
 
     if (pathname.startsWith("/configuracion") ||
         pathname.startsWith("/dependencias") ||

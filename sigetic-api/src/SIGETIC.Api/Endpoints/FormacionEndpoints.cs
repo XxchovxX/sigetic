@@ -29,7 +29,7 @@ public static class FormacionEndpoints
                 ? Results.NotFound(new { message = "No se encontro la capacitacion solicitada." })
                 : Results.Ok(participantes);
         })
-        .RequireAuthorization("FormacionGestion");
+        .RequireAuthorization("FormacionReportes");
 
         group.MapGet("/cursos", async (
             ClaimsPrincipal user,
@@ -38,7 +38,7 @@ public static class FormacionEndpoints
         {
             var cursos = await service.GetCursosAsync(
                 GetUserId(user),
-                CanManageTraining(user),
+                CanViewTrainingReports(user),
                 cancellationToken);
 
             return Results.Ok(cursos);
@@ -53,7 +53,7 @@ public static class FormacionEndpoints
             var curso = await service.GetCursoByIdAsync(
                 id,
                 GetUserId(user),
-                CanManageTraining(user),
+                CanViewTrainingReports(user),
                 cancellationToken);
 
             return curso is null
@@ -204,4 +204,7 @@ public static class FormacionEndpoints
         return string.IsNullOrWhiteSpace(expiration) ||
             (DateTime.TryParse(expiration, out var hastaUtc) && hastaUtc.ToUniversalTime() > DateTime.UtcNow);
     }
+
+    private static bool CanViewTrainingReports(ClaimsPrincipal user) =>
+        CanManageTraining(user) || user.IsInRole("Auxiliar Administrativo SAF");
 }

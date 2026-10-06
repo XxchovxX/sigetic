@@ -178,7 +178,7 @@ const menuItems: MenuItem[] = [
         title: "Usuarios",
         href: "/configuracion/usuarios",
         icon: UsersRound,
-        roles: [ROLES.admin],
+        roles: [ROLES.admin, ROLES.safAssistant],
     },
     {
         title: "Reportes",

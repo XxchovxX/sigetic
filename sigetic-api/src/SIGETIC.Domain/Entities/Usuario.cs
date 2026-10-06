@@ -100,20 +100,20 @@ public sealed class Usuario
 
     public void CompletarPerfil(
         Guid dependenciaId,
-        string cargo,
+        string? cargo,
         string tipoVinculacion)
     {
         if (dependenciaId == Guid.Empty)
             throw new ArgumentException("La dependencia es obligatoria.");
 
-        if (string.IsNullOrWhiteSpace(cargo))
+        if (EsCuentaGoogle && string.IsNullOrWhiteSpace(cargo))
             throw new ArgumentException("El cargo es obligatorio.");
 
         if (string.IsNullOrWhiteSpace(tipoVinculacion))
             throw new ArgumentException("El tipo de vinculación es obligatorio.");
 
         DependenciaId = dependenciaId;
-        Cargo = cargo.Trim();
+        Cargo = string.IsNullOrWhiteSpace(cargo) ? null : cargo.Trim();
         TipoVinculacion = tipoVinculacion.Trim();
         FechaActualizacionUtc = DateTime.UtcNow;
     }

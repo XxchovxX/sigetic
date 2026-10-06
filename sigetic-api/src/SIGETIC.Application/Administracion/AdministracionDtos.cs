@@ -54,7 +54,7 @@ public sealed record ConfigurarGestionFormacionRequest(
 
 public sealed record ActualizarPerfilUsuarioRequest(
     Guid DependenciaId,
-    string Cargo,
+    string? Cargo,
     string TipoVinculacion
 );
 
@@ -62,7 +62,10 @@ public sealed record CrearUsuarioRequest(
     string NombreCompleto,
     string Correo,
     string Password,
-    Guid RolId
+    Guid RolId,
+    Guid? DependenciaId = null,
+    string? Cargo = null,
+    string? TipoVinculacion = null
 );
 
 public sealed record ActualizarUsuarioRequest(

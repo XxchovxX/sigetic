@@ -137,6 +137,10 @@ builder.Services.AddAuthorization(options =>
     ];
 
     options.AddPolicy("Administracion", policy => policy.RequireRole(admin));
+    options.AddPolicy("UsuariosLectura", policy => policy.RequireRole(
+        "Administrador", "Auxiliar Administrativo SAF"));
+    options.AddPolicy("FormacionReportes", policy => policy.RequireAssertion(context =>
+        CanManageTraining(context.User) || context.User.IsInRole("Auxiliar Administrativo SAF")));
     options.AddPolicy("TecnicoLectura", policy => policy.RequireRole(technicalRead));
     options.AddPolicy("TecnicoEscritura", policy => policy.RequireRole(technicalWrite));
     options.AddPolicy("Consumibles", policy => policy.RequireRole(consumibles));

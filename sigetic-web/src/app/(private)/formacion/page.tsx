@@ -25,7 +25,7 @@ import {
     X,
 } from "lucide-react";
 import { getStoredUser, SESSION_CHANGED_EVENT, type AuthUser } from "@/lib/auth";
-import { canManageFormacion } from "@/lib/permissions";
+import { canManageFormacion, canViewTrainingReports } from "@/lib/permissions";
 import {
     createCursoFormacion,
     getCertificadoFormacion,
@@ -206,6 +206,7 @@ export default function FormacionPage() {
     }, []);
 
     const canManage = canManageFormacion(user);
+    const canViewReports = canViewTrainingReports(user);
     const selectedCurso = cursos.find((curso) => curso.id === selectedCursoId) ?? null;
     const selectedMaterial = selectedCurso?.materiales.find((material) => material.id === selectedMaterialId)
         ?? selectedCurso?.materiales[0]
@@ -1111,7 +1112,7 @@ export default function FormacionPage() {
                                 />
                             </div>
 
-                            {canManage ? (
+                            {canViewReports ? (
                                 <ParticipantesCurso key={selectedCurso.id} cursoId={selectedCurso.id} titulo={selectedCurso.titulo} />
                             ) : null}
 

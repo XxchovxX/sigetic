@@ -176,6 +176,21 @@ public sealed class AdministracionService : IAdministracionService
             PasswordHasher.Hash(request.Password),
             request.RolId);
 
+        if (request.DependenciaId.HasValue)
+        {
+            var dependencia = await _dbContext.Dependencias.FirstOrDefaultAsync(
+                e => e.Id == request.DependenciaId && e.Activa, cancellationToken)
+                ?? throw new ArgumentException("Selecciona una dependencia activa.");
+            if (request.TipoVinculacion is not ("Funcionario" or "Contratista"))
+                throw new ArgumentException("Selecciona Funcionario o Contratista.");
+            usuario.CompletarPerfil(dependencia.Id, request.Cargo, request.TipoVinculacion);
+            _dbContext.Entry(usuario).Reference(e => e.Dependencia).CurrentValue = dependencia;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Cargo) || !string.IsNullOrWhiteSpace(request.TipoVinculacion))
+        {
+            throw new ArgumentException("Selecciona la dependencia para registrar el perfil.");
+        }
+
         _dbContext.Usuarios.Add(usuario);
         await _dbContext.SaveChangesAsync(cancellationToken);
 

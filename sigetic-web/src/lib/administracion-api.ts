@@ -62,6 +62,9 @@ export type CrearUsuarioPayload = {
     correo: string;
     password: string;
     rolId: string;
+    dependenciaId?: string;
+    cargo?: string;
+    tipoVinculacion?: string;
 };
 
 export type ActualizarUsuarioPayload = {
@@ -178,6 +181,10 @@ export async function createRol(payload: CrearRolPayload): Promise<Rol> {
 
 export async function getUsuarios(): Promise<Usuario[]> {
     return adminFetch<Usuario[]>("/api/administracion/usuarios");
+}
+
+export async function getUsuariosConsulta(): Promise<Usuario[]> {
+    return adminFetch<Usuario[]>("/api/usuarios");
 }
 
 export async function createUsuario(

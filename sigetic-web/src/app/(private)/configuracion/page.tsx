@@ -22,11 +22,15 @@ import {
     deleteUsuario,
     getRoles,
     getUsuarios,
+    getUsuariosConsulta,
+    getDependencias,
     updateUsuario,
     type Rol,
     type Usuario,
+    type Dependencia,
 } from "@/lib/administracion-api";
 import { getStoredUser } from "@/lib/auth";
+import { canManageUsers } from "@/lib/permissions";
 import { exportUsuariosExcel, exportUsuariosPdf, formatUserDate } from "@/lib/export-usuarios";
 
 function calculateTrainingExpiration(duration: string) {
@@ -38,8 +42,13 @@ function calculateTrainingExpiration(duration: string) {
 }
 
 export default function UsuariosPage() {
+    const canManage = canManageUsers(getStoredUser());
     const [usuarios, setUsuarios] = useState<Usuario[]>([]);
     const [roles, setRoles] = useState<Rol[]>([]);
+    const [dependencias, setDependencias] = useState<Dependencia[]>([]);
+    const [dependenciaId, setDependenciaId] = useState("");
+    const [cargo, setCargo] = useState("");
+    const [tipoVinculacion, setTipoVinculacion] = useState("Funcionario");
 
     const [nombreCompleto, setNombreCompleto] = useState("");
     const [correo, setCorreo] = useState("");
@@ -91,13 +100,15 @@ export default function UsuariosPage() {
         try {
             setIsLoading(true);
 
-            const [usuariosData, rolesData] = await Promise.all([
-                getUsuarios(),
-                getRoles(),
+            const [usuariosData, rolesData, dependenciasData] = await Promise.all([
+                canManage ? getUsuarios() : getUsuariosConsulta(),
+                canManage ? getRoles() : Promise.resolve([] as Rol[]),
+                canManage ? getDependencias() : Promise.resolve([] as Dependencia[]),
             ]);
 
             setUsuarios(usuariosData);
             setRoles(rolesData);
+            setDependencias(dependenciasData.filter((item) => item.activa));
 
             if (!rolId && rolesData.length > 0) {
                 setRolId(rolesData[0].id);
@@ -112,7 +123,7 @@ export default function UsuariosPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [rolId]);
+    }, [rolId, canManage]);
 
     useEffect(() => {
         loadData();
@@ -154,11 +165,15 @@ export default function UsuariosPage() {
                 correo,
                 password,
                 rolId,
+                ...(dependenciaId ? { dependenciaId, cargo, tipoVinculacion } : {}),
             });
 
             setNombreCompleto("");
             setCorreo("");
             setPassword("");
+            setDependenciaId("");
+            setCargo("");
+            setTipoVinculacion("Funcionario");
             setMessageType("success");
             setMessage("Usuario creado correctamente.");
             await loadData();
@@ -324,7 +339,7 @@ export default function UsuariosPage() {
                     {message}
                 </div>
             ) : null}
-            <details className="border-b border-slate-200 pb-4">
+            {canManage ? <details className="border-b border-slate-200 pb-4">
                 <summary className="flex cursor-pointer items-center gap-3 text-[#006b2e]">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-[#006b2e]">
                         <Plus className="h-5 w-5" />
@@ -392,6 +407,23 @@ export default function UsuariosPage() {
                         </select>
                     </label>
 
+                    <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-600">Dependencia</span>
+                        <select value={dependenciaId} onChange={(event) => setDependenciaId(event.target.value)} className={inputClass}>
+                            <option value="">Sin dependencia</option>
+                            {dependencias.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-600">Vinculacion</span>
+                        <select disabled={!dependenciaId} value={tipoVinculacion} onChange={(event) => setTipoVinculacion(event.target.value)} className={inputClass}>
+                            <option value="Funcionario">Funcionario</option><option value="Contratista">Contratista</option>
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-600">Cargo (opcional)</span>
+                        <input disabled={!dependenciaId} value={cargo} onChange={(event) => setCargo(event.target.value)} className={inputClass} />
+                    </label>
                     <button
                         type="submit"
                         disabled={isSubmitting}
@@ -400,7 +432,7 @@ export default function UsuariosPage() {
                         {isSubmitting ? "Guardando..." : "Crear usuario"}
                     </button>
                 </form>
-            </details>
+            </details> : null}
 
             <section className="min-w-0 py-2">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -515,7 +547,7 @@ export default function UsuariosPage() {
                                             <p className="mt-1 text-slate-500">{formatUserDate(usuario.ultimoAccesoUtc)}</p>
                                         </td>
                                         <td className="px-5 py-4 align-middle">
-                                            <details>
+                                            {canManage ? <details>
                                                 <summary className="cursor-pointer whitespace-nowrap text-xs font-bold text-[#006b2e]"><Settings2 className="mr-1 inline h-4 w-4" />Administrar</summary>
                                             <div className="mt-3 grid min-w-60 gap-2">
                                                 {!(["Administrador", "Administrador TIC", "Tecnico TIC", "Auxiliar de Sistemas"].includes(usuario.rol)) ? (
@@ -590,7 +622,7 @@ export default function UsuariosPage() {
                                                     Eliminar usuario
                                                 </button>
                                             </div>
-                                            </details>
+                                            </details> : <span className="text-xs text-slate-500">Solo consulta</span>}
                                         </td>
                                     </tr>
                                 ))}
