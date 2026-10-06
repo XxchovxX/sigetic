@@ -20,7 +20,35 @@ function Invoke-Sigetic([string]$Method, [string]$Path, $Body = $null) {
         ContentType = 'application/json; charset=utf-8'
     }
     if ($null -ne $Body) { $arguments.Body = [Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 8)) }
-    Invoke-RestMethod @arguments
+    try {
+        $response = Invoke-RestMethod @arguments
+        # Windows PowerShell can emit JSON arrays as a single pipeline object.
+        foreach ($item in $response) { $item }
+    }
+    catch {
+        $details = $_.ErrorDetails.Message
+        $httpResponse = $_.Exception.Response
+        if (!$details -and $httpResponse) {
+            try {
+                $reader = New-Object IO.StreamReader($httpResponse.GetResponseStream())
+                try { $details = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            }
+            catch { $details = $null }
+        }
+        $reason = 'No se pudo completar la solicitud.'
+        if ($details) {
+            try {
+                $errorBody = $details | ConvertFrom-Json
+                if ($errorBody.message) { $reason = $errorBody.message }
+                elseif ($errorBody.errors) {
+                    $reason = ($errorBody.errors.PSObject.Properties | ForEach-Object { $_.Value }) -join ' '
+                }
+                elseif ($errorBody.title) { $reason = $errorBody.title }
+            }
+            catch { $reason = 'El servidor devolvio un error sin detalle JSON.' }
+        }
+        throw "SIGETIC ($Method $Path): $reason"
+    }
 }
 
 $script:headers = @{}
@@ -36,6 +64,8 @@ try {
     if ($role.Count -ne 1 -or $department.Count -ne 1) {
         throw 'No se encontro un unico rol SAF y dependencia SAF activos. Revisa Usuarios y Dependencias.'
     }
+    $roleId = [Guid]::Parse([string]$role[0].id).ToString()
+    $departmentId = [Guid]::Parse([string]$department[0].id).ToString()
     $users = @(Invoke-Sigetic GET '/api/administracion/usuarios')
     $existing = @($users | Where-Object { $_.correo -eq 'secfin@sigetic.local' })
     if ($existing.Count -gt 0) {
@@ -44,10 +74,10 @@ try {
         }
         $user = Invoke-Sigetic PUT "/api/administracion/usuarios/$($existing[0].id)" @{
             nombreCompleto = 'Ana Biviana Osorio'; correo = 'secfin@sigetic.local'
-            rolId = $role[0].id; activo = $true
+            rolId = $roleId; activo = $true
         }
         $user = Invoke-Sigetic PATCH "/api/administracion/usuarios/$($user.id)/perfil" @{
-            dependenciaId = $department[0].id; cargo = ''; tipoVinculacion = 'Funcionario'
+            dependenciaId = $departmentId; cargo = ''; tipoVinculacion = 'Funcionario'
         }
     }
     else {
@@ -55,7 +85,7 @@ try {
         if ($password.Length -lt 8) { throw 'La contrasena debe tener minimo 8 caracteres.' }
         $user = Invoke-Sigetic POST '/api/administracion/usuarios' @{
             nombreCompleto = 'Ana Biviana Osorio'; correo = 'secfin@sigetic.local'
-            password = $password; rolId = $role[0].id; dependenciaId = $department[0].id
+            password = $password; rolId = $roleId; dependenciaId = $departmentId
             cargo = ''; tipoVinculacion = 'Funcionario'
         }
         $password = $null
