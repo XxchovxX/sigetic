@@ -19,16 +19,6 @@ function today() {
     return new Date().toISOString().slice(0, 10);
 }
 
-const currencyFormatter = new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-});
-
-function formatCurrency(value: number) {
-    return currencyFormatter.format(value || 0);
-}
-
 export default function DetalleConsumiblePage() {
     const params = useParams<{ id: string }>();
     const consumibleId = params.id;
@@ -49,7 +39,6 @@ export default function DetalleConsumiblePage() {
     const [impresoraId, setImpresoraId] = useState("");
     const [documentoSoporte, setDocumentoSoporte] = useState("");
     const [observaciones, setObservaciones] = useState("");
-    const [costoUnitario, setCostoUnitario] = useState("");
 
     async function refreshData(showLoading = true) {
         try {
@@ -137,7 +126,6 @@ export default function DetalleConsumiblePage() {
                 impresoraId: impresoraId || null,
                 documentoSoporte: documentoSoporte || null,
                 observaciones: observaciones || null,
-                costoUnitario: costoUnitario ? Number(costoUnitario) : null,
             });
 
             setCantidad("1");
@@ -147,7 +135,6 @@ export default function DetalleConsumiblePage() {
             setImpresoraId("");
             setDocumentoSoporte("");
             setObservaciones("");
-            setCostoUnitario("");
             setMessage("Movimiento registrado correctamente.");
             await refreshData(false);
         } catch (error) {
@@ -227,10 +214,9 @@ export default function DetalleConsumiblePage() {
                 </div>
             ) : null}
 
-            <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-5 md:grid-cols-3">
                 <InfoCard title="Stock actual" value={`${consumible.stockActual} ${consumible.unidadMedida}`} icon={Package} />
                 <InfoCard title="Stock mínimo" value={String(consumible.stockMinimo)} icon={AlertTriangle} />
-                <InfoCard title="Costo unitario" value={formatCurrency(consumible.costoUnitario)} icon={FileText} />
                 <InfoCard title="Estado" value={consumible.activo ? "Activo" : "Inactivo"} icon={FileText} />
             </section>
 
@@ -272,9 +258,6 @@ export default function DetalleConsumiblePage() {
                         </Field>
                         <Field label="Documento soporte">
                             <input value={documentoSoporte} onChange={(event) => setDocumentoSoporte(event.target.value)} placeholder="Acta, factura, remisión" className={inputClass} />
-                        </Field>
-                        <Field label="Costo unitario opcional">
-                            <input type="number" min="0" step="0.01" value={costoUnitario} onChange={(event) => setCostoUnitario(event.target.value)} placeholder={String(consumible.costoUnitario)} className={inputClass} />
                         </Field>
                         <Field label="Dependencia opcional">
                             <select value={dependenciaId} onChange={(event) => setDependenciaId(event.target.value)} className={inputClass}>
@@ -321,7 +304,6 @@ export default function DetalleConsumiblePage() {
                                     <th className="px-4 py-3">Cantidad</th>
                                     <th className="px-4 py-3">Responsable</th>
                                     <th className="px-4 py-3">Destino</th>
-                                    <th className="px-4 py-3">Costo</th>
                                     <th className="px-4 py-3">Stock resultante</th>
                                 </tr>
                             </thead>
@@ -333,7 +315,6 @@ export default function DetalleConsumiblePage() {
                                         <td className="px-4 py-3 text-slate-600">{item.cantidad}</td>
                                         <td className="px-4 py-3 text-slate-600">{item.responsable}</td>
                                         <td className="px-4 py-3 text-slate-600">{item.impresora ?? item.dependencia ?? item.destino ?? "Inventario"}</td>
-                                        <td className="px-4 py-3 text-slate-600">{formatCurrency(item.costoTotal)}</td>
                                         <td className="px-4 py-3 font-black text-[#006b2e]">{item.stockResultante}</td>
                                     </tr>
                                 ))}

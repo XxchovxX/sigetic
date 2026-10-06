@@ -78,7 +78,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     },
     "/analitica": {
         title: "Analítica SIGETIC",
-        subtitle: "Consumo, costos, alertas y satisfacción",
+        subtitle: "Consumo, existencias, alertas y satisfacción",
     },
     "/configuracion": {
         title: "Configuración",
@@ -117,9 +117,9 @@ const searchableItems = [
     },
     {
         title: "Consumibles",
-        description: "Stock, entradas, salidas y costos",
+        description: "Stock, entradas, salidas y trazabilidad",
         href: "/consumibles",
-        keywords: "tinta tóner stock inventario consumible costo",
+        keywords: "tinta tóner stock inventario consumible movimiento",
     },
     {
         title: "Mesa de ayuda",
@@ -147,9 +147,9 @@ const searchableItems = [
     },
     {
         title: "Analítica",
-        description: "Consumo, costos, alertas y satisfacción",
+        description: "Consumo, existencias, alertas y satisfacción",
         href: "/analitica",
-        keywords: "analítica presupuesto alerta stock semáforo",
+        keywords: "analítica consumo alerta stock semáforo",
     },
     {
         title: "Ayuda",
@@ -188,7 +188,7 @@ const notificationItems = [
     },
     {
         title: "Analítica institucional",
-        description: "Consultar alertas, costos y satisfacción.",
+        description: "Consultar alertas, consumo y satisfacción.",
         href: "/analitica",
     },
     {

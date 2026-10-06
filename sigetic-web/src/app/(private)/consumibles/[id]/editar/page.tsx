@@ -19,7 +19,6 @@ export default function EditarConsumiblePage() {
     const [color, setColor] = useState("Negro");
     const [unidadMedida, setUnidadMedida] = useState("Unidad");
     const [stockMinimo, setStockMinimo] = useState("1");
-    const [costoUnitario, setCostoUnitario] = useState("0");
     const [marcaCompatible, setMarcaCompatible] = useState("");
     const [modelosCompatibles, setModelosCompatibles] = useState("");
     const [observaciones, setObservaciones] = useState("");
@@ -42,7 +41,6 @@ export default function EditarConsumiblePage() {
                 setColor(data.color);
                 setUnidadMedida(data.unidadMedida);
                 setStockMinimo(String(data.stockMinimo));
-                setCostoUnitario(String(data.costoUnitario ?? 0));
                 setMarcaCompatible(data.marcaCompatible ?? "");
                 setModelosCompatibles(data.modelosCompatibles ?? "");
                 setObservaciones(data.observaciones ?? "");
@@ -71,7 +69,7 @@ export default function EditarConsumiblePage() {
                 color,
                 unidadMedida,
                 stockMinimo: Number(stockMinimo),
-                costoUnitario: Number(costoUnitario),
+                costoUnitario: consumible?.costoUnitario ?? 0,
                 marcaCompatible: marcaCompatible || null,
                 modelosCompatibles: modelosCompatibles || null,
                 observaciones: observaciones || null,
@@ -155,7 +153,6 @@ export default function EditarConsumiblePage() {
                         </select>
                     </Field>
                     <Field label="Stock mínimo"><input type="number" min="0" value={stockMinimo} onChange={(event) => setStockMinimo(event.target.value)} className={inputClass} /></Field>
-                    <Field label="Costo unitario"><input type="number" min="0" step="0.01" value={costoUnitario} onChange={(event) => setCostoUnitario(event.target.value)} className={inputClass} /></Field>
                     <Field label="Estado">
                         <select value={activo ? "Activo" : "Inactivo"} onChange={(event) => setActivo(event.target.value === "Activo")} className={inputClass}>
                             <option>Activo</option><option>Inactivo</option>

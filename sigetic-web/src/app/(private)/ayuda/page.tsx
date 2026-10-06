@@ -165,7 +165,7 @@ const quickCards = [
     {
         icon: Package,
         title: "Consumibles",
-        text: "Entradas, salidas, stock mínimo y costos.",
+        text: "Entradas, salidas, stock mínimo y trazabilidad.",
     },
     {
         icon: ShieldCheck,

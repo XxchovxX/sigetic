@@ -10,7 +10,7 @@ import {
     History,
     Search,
     Star,
-    Wallet,
+    Package,
 } from "lucide-react";
 import {
     getAnaliticaResumen,
@@ -18,16 +18,6 @@ import {
     type AnaliticaResumen,
     type HistorialConsolidado,
 } from "@/lib/analitica-api";
-
-const currencyFormatter = new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-});
-
-function formatCurrency(value: number) {
-    return currencyFormatter.format(value || 0);
-}
 
 function formatNumber(value: number) {
     return new Intl.NumberFormat("es-CO").format(value || 0);
@@ -122,8 +112,8 @@ export default function AnaliticaPage() {
     }
 
     const satisfaccion = data.satisfaccionTickets;
-    const costoTotal = data.presupuestoConsumibles.reduce(
-        (total, item) => total + item.costoEjecutado,
+    const unidadesTotal = data.presupuestoConsumibles.reduce(
+        (total, item) => total + item.unidadesEjecutadas,
         0
     );
 
@@ -137,10 +127,10 @@ export default function AnaliticaPage() {
                     detail={`${satisfaccion.encuestas} encuestas`}
                 />
                 <MetricCard
-                    icon={Wallet}
-                    label="Consumibles ejecutados"
-                    value={formatCurrency(costoTotal)}
-                    detail="Costo acumulado registrado"
+                    icon={Package}
+                    label="Unidades entregadas"
+                    value={formatNumber(unidadesTotal)}
+                    detail="Salidas de consumibles registradas"
                 />
                 <MetricCard
                     icon={AlertTriangle}
@@ -175,7 +165,7 @@ export default function AnaliticaPage() {
                                                     {item.dependencia}
                                                 </h3>
                                                 <p className="mt-1 text-xs font-bold text-slate-500">
-                                                    {formatNumber(total)} registros | {formatCurrency(item.costoConsumibles)}
+                                                    {formatNumber(total)} registros
                                                 </p>
                                             </div>
                                             <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-[#006b2e]">
@@ -213,14 +203,14 @@ export default function AnaliticaPage() {
 
             <section className="grid gap-5 xl:grid-cols-3">
                 <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <SectionTitle icon={Wallet} eyebrow="Presupuesto" title="Ejecución de consumibles" />
+                    <SectionTitle icon={Package} eyebrow="Consumo" title="Entregas por periodo" />
                     <CompactList
-                        empty="No hay salidas valorizadas de consumibles."
+                        empty="No hay salidas registradas de consumibles."
                         items={data.presupuestoConsumibles.map((item) => ({
                             key: `${item.periodo}-${item.tipoConsumible}`,
                             title: `${item.periodo} | ${item.tipoConsumible}`,
-                            detail: `${item.unidadesEjecutadas} unidades`,
-                            value: formatCurrency(item.costoEjecutado),
+                            detail: item.tipoConsumible,
+                            value: `${formatNumber(item.unidadesEjecutadas)} unidades`,
                         }))}
                     />
                 </article>

@@ -16,7 +16,6 @@ export default function NuevoConsumiblePage() {
     const [unidadMedida, setUnidadMedida] = useState("Unidad");
     const [stockActual, setStockActual] = useState("0");
     const [stockMinimo, setStockMinimo] = useState("1");
-    const [costoUnitario, setCostoUnitario] = useState("0");
     const [marcaCompatible, setMarcaCompatible] = useState("");
     const [modelosCompatibles, setModelosCompatibles] = useState("");
     const [observaciones, setObservaciones] = useState("");
@@ -39,7 +38,7 @@ export default function NuevoConsumiblePage() {
                 unidadMedida,
                 stockActual: Number(stockActual),
                 stockMinimo: Number(stockMinimo),
-                costoUnitario: Number(costoUnitario),
+                costoUnitario: 0,
                 marcaCompatible: marcaCompatible || null,
                 modelosCompatibles: modelosCompatibles || null,
                 observaciones: observaciones || null,
@@ -121,9 +120,6 @@ export default function NuevoConsumiblePage() {
                     </Field>
                     <Field label="Stock mínimo">
                         <input type="number" min="0" value={stockMinimo} onChange={(event) => setStockMinimo(event.target.value)} className={inputClass} />
-                    </Field>
-                    <Field label="Costo unitario">
-                        <input type="number" min="0" step="0.01" value={costoUnitario} onChange={(event) => setCostoUnitario(event.target.value)} placeholder="Valor unitario en pesos" className={inputClass} />
                     </Field>
                     <Field label="Marca compatible">
                         <input value={marcaCompatible} onChange={(event) => setMarcaCompatible(event.target.value)} placeholder="Ej: HP, Epson, Canon" className={inputClass} />
