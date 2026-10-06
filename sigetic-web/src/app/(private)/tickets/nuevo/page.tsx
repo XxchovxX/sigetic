@@ -15,7 +15,7 @@ const categorias = [
     "Mantenimiento correctivo",
     "Impresora / consumibles",
     "Red o conectividad",
-    "Incidente de seguridad",
+    "Incidente de seguridad informática",
     "Software",
     "Otro",
 ];
