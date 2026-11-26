@@ -24,8 +24,7 @@ internal sealed class ErrorFirma(int status, string message) : Exception(message
 }
 
 internal sealed class DocumentosFirmaService(
-    SigeticDbContext db, IConfiguration configuration, CorreoFirma correoFirma, FormatoOficialTh122 formatoOficial,
-    ILogger<DocumentosFirmaService> logger)
+    SigeticDbContext db, IConfiguration configuration, CorreoFirma correoFirma, ILogger<DocumentosFirmaService> logger)
 {
     private const int MaxPdf = 4 * 1024 * 1024;
     private const string Acuerdo = "Acepto usar la firma electrónica de SIGETIC y manifiesto mi aprobación del contenido de la versión del documento identificada por la huella SHA-256.";
@@ -79,7 +78,7 @@ internal sealed class DocumentosFirmaService(
             throw new ErrorFirma(409, "Tu cuenta necesita un correo válido para firmar.");
 
         var pdf = esFormato
-            ? await formatoOficial.CrearAsync(PlantillaTh122.Normalizar(request.Campos!, usuario, recibe!), firmantes, ct)
+            ? PdfFirma.CrearFormato(id, PlantillaTh122.Normalizar(request.Campos!, usuario, recibe!), firmantes, creado)
             : PdfFirma.Importar(DecodificarPdf(request.PdfBase64!));
         var datos = new DatosDocumento(titulo, esFormato ? "TH-F-122" : "PDF", Hash(pdf), firmantes.ToArray());
         var documento = new DocumentoFirma(id, usuarioId, creado, 0, datos, pdf, null);

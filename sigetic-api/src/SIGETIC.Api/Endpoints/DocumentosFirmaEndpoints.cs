@@ -13,7 +13,6 @@ public static class DocumentosFirmaEndpoints
     {
         services.AddScoped<DocumentosFirmaService>();
         services.AddScoped<CorreoFirma>();
-        services.AddScoped<FormatoOficialTh122>();
         services.AddHttpClient("FirmasCorreo", client => client.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddRateLimiter(options =>
@@ -52,14 +51,6 @@ public static class DocumentosFirmaEndpoints
         group.MapGet("/", async (ClaimsPrincipal user, DocumentosFirmaService service, CancellationToken ct) =>
             Results.Ok(await service.ListarAsync(UsuarioId(user), ct)));
         group.MapGet("/plantilla", () => Results.Ok(PlantillaTh122.Secciones));
-        var administracionPlantilla = group.MapGroup("/plantilla-oficial")
-            .RequireAuthorization(policy => policy.RequireRole("Administrador"));
-        administracionPlantilla.MapGet("/", (FormatoOficialTh122 formato) => Results.Ok(new { instalada = formato.Instalada }));
-        administracionPlantilla.MapPost("/", async (InstalarPlantilla request, FormatoOficialTh122 formato, CancellationToken ct) =>
-        {
-            await formato.InstalarAsync(request.DocxBase64, ct);
-            return Results.Ok(new { instalada = true });
-        }).RequireRateLimiting(Limite);
         group.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, DocumentosFirmaService service, CancellationToken ct) =>
             Results.Ok(await service.DetalleAsync(UsuarioId(user), id, ct)));
         group.MapPost("/", async (CrearDocumentoFirma request, ClaimsPrincipal user, DocumentosFirmaService service, CancellationToken ct) =>
@@ -83,6 +74,4 @@ public static class DocumentosFirmaEndpoints
         Guid.TryParse(user.FindFirstValue("usuario_id"), out var id)
             ? id
             : throw new ErrorFirma(401, "La sesión no identifica al usuario.");
-
-    private sealed record InstalarPlantilla(string? DocxBase64);
 }

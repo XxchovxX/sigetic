@@ -12,8 +12,7 @@ RUN dotnet publish src/SIGETIC.Api/SIGETIC.Api.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 RUN apt-get update \
-    && narrow="$(apt-cache show fonts-liberation-sans-narrow 2>/dev/null | head -n 1)" \
-    && apt-get install -y --no-install-recommends libkrb5-3 fonts-dejavu-core fonts-liberation libreoffice-writer ${narrow:+fonts-liberation-sans-narrow} \
+    && apt-get install -y --no-install-recommends libkrb5-3 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

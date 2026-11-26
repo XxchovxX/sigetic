@@ -14,7 +14,7 @@ import time
 PROD = Path("/opt/sigetic")
 RELEASE = Path(__file__).resolve().parents[2]
 BASE = "89f73a3b96c3da31bbfce57018a4e27313348bc9"
-BASE_PLANTILLA = "9f2aa805fdf792dcc7cba4ee668a5c43ecc8b641"
+BASE_PLANTILLA = "5698b48967e6a0cb87b73ecb42fc7f3c4060584b"
 
 
 def run(*args, **kwargs):
@@ -36,7 +36,7 @@ def paths(data):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--plantilla", action="store_true", help="Actualiza el formato y reutiliza el entorno de producción")
+    parser.add_argument("--membrete", "--plantilla", dest="plantilla", action="store_true", help="Actualiza el membrete y reutiliza el entorno de producción")
     plantilla = parser.parse_args().plantilla
     base = BASE_PLANTILLA if plantilla else BASE
     if os.geteuid() != 0:
@@ -57,7 +57,7 @@ def main():
         raise RuntimeError("Se esperaba un archivo .env local en /opt/sigetic.")
     values = {}
     if plantilla:
-        print("Se actualizará el formato institucional TH-F-122.")
+        print("Se actualizarán el encabezado y el pie del TH-F-122.")
         if input("Escribe PUBLICAR para respaldar y actualizar SIGETIC: ").strip() != "PUBLICAR":
             print("Publicación cancelada.")
             return

@@ -21,6 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Firmas/Recursos/EscudoAlcaldia.png" />
+    <EmbeddedResource Include="Firmas/Recursos/PieAlcaldia.jpg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SIGETIC.Application\SIGETIC.Application.csproj" />
     <ProjectReference Include="..\SIGETIC.Infrastructure\SIGETIC.Infrastructure.csproj" />
   </ItemGroup>
