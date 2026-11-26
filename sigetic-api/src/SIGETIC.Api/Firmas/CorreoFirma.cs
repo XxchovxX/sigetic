@@ -11,17 +11,37 @@ internal sealed class CorreoFirma(IConfiguration configuration, IHttpClientFacto
     private readonly string proveedor = configuration["Firmas:ProveedorCorreo"]?.Trim().ToLowerInvariant() ?? "resend";
     private readonly string? remitente = configuration["Firmas:Remitente"]?.Trim();
     private readonly string? resendApiKey = configuration["Firmas:ResendApiKey"]?.Trim();
-    private readonly string gmailClaveAplicacion = string.Concat(
-        (configuration["Firmas:GmailClaveAplicacion"] ?? "").Where(c => !char.IsWhiteSpace(c)));
+    private readonly (MailAddress Direccion, string Clave)? gmail = LeerGmail(configuration);
 
-    public bool Configurado => MailAddress.TryCreate(remitente, out var desde) && proveedor switch
+    public bool Configurado => proveedor switch
     {
-        "gmail" => (desde.Host.Equals("gmail.com", StringComparison.OrdinalIgnoreCase) ||
-            desde.Host.Equals("googlemail.com", StringComparison.OrdinalIgnoreCase)) &&
-            gmailClaveAplicacion.Length == 16 && gmailClaveAplicacion.All(char.IsAsciiLetterOrDigit),
-        "resend" => !string.IsNullOrWhiteSpace(resendApiKey),
+        "gmail" => gmail is not null,
+        "resend" => MailAddress.TryCreate(remitente, out _) && !string.IsNullOrWhiteSpace(resendApiKey),
         _ => false
     };
+
+    private static (MailAddress Direccion, string Clave)? LeerGmail(IConfiguration configuration)
+    {
+        var direccion = configuration["Firmas:Remitente"];
+        var clave = configuration["Firmas:GmailClaveAplicacion"];
+        if (string.IsNullOrWhiteSpace(direccion) && string.IsNullOrWhiteSpace(clave))
+        {
+            if (!string.Equals(configuration["Email:SmtpHost"]?.Trim(), "smtp.gmail.com", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            direccion = configuration["Email:SmtpUser"];
+            clave = configuration["Email:SmtpPassword"];
+        }
+
+        var normalizada = string.Concat((clave ?? "").Where(c => !char.IsWhiteSpace(c)));
+        if (!MailAddress.TryCreate(direccion?.Trim(), out var cuenta) ||
+            !(cuenta.Host.Equals("gmail.com", StringComparison.OrdinalIgnoreCase) ||
+              cuenta.Host.Equals("googlemail.com", StringComparison.OrdinalIgnoreCase)) ||
+            normalizada.Length != 16 || !normalizada.All(char.IsAsciiLetterOrDigit))
+            return null;
+
+        return (new MailAddress(cuenta.Address, "SIGETIC"), normalizada);
+    }
 
     public async Task EnviarAsync(MailAddress destinatario, string codigo, Guid documentoId, CancellationToken ct)
     {
@@ -29,7 +49,7 @@ internal sealed class CorreoFirma(IConfiguration configuration, IHttpClientFacto
             "Ingresa el código únicamente en SIGETIC para confirmar tu firma. Si no solicitaste el código, ignora este correo.";
         if (proveedor == "gmail")
         {
-            var desde = new MailAddress(new MailAddress(remitente!).Address, "SIGETIC");
+            var (desde, clave) = gmail ?? throw new InvalidOperationException("Gmail no está configurado para firmas.");
             using var correo = new MailMessage(desde, destinatario)
             {
                 Subject = Asunto,
@@ -41,7 +61,7 @@ internal sealed class CorreoFirma(IConfiguration configuration, IHttpClientFacto
             {
                 EnableSsl = true,
                 UseDefaultCredentials = false,
-                Credentials = new NetworkCredential(desde.Address, gmailClaveAplicacion)
+                Credentials = new NetworkCredential(desde.Address, clave)
             };
             using var plazo = CancellationTokenSource.CreateLinkedTokenSource(ct);
             plazo.CancelAfter(TimeSpan.FromSeconds(15));
