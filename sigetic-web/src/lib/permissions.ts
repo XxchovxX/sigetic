@@ -94,6 +94,7 @@ export function canAccessPath(user: AuthUser | null, pathname: string) {
     if (!user) return false;
 
     if (pathname === "/completar-perfil") return true;
+    if (pathname === "/documentos-firma") return user.perfilCompleto && hasRole(user, allRoles);
 
     if (user.rol === ROLES.admin) return true;
 

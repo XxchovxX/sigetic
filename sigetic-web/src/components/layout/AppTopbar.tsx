@@ -5,6 +5,7 @@ import {
     ChevronRight,
     CircleHelp,
     LogOut,
+    FileCheck2,
     Menu,
     Search,
     UserRound,
@@ -60,6 +61,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
         title: "Formación",
         subtitle: "Capacitaciones institucionales",
     },
+    "/documentos-firma": {
+        title: "Documentos para firmar",
+        subtitle: "Firma electrónica y constancias",
+    },
     "/ayuda": {
         title: "Ayuda",
         subtitle: "Preguntas frecuentes y orientación",
@@ -91,6 +96,12 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
 };
 
 const searchableItems = [
+    {
+        title: "Documentos para firmar",
+        description: "Firma electrónica y verificación de constancias",
+        href: "/documentos-firma",
+        keywords: "firma documentos constancia th-f-122",
+    },
     {
         title: "Dashboard",
         description: "Indicadores generales del sistema",
@@ -314,6 +325,14 @@ export function AppTopbar() {
                     >
                         <Menu className="h-5 w-5 text-slate-600" />
                     </button>
+
+                    {canAccessPath(user, "/documentos-firma") && (
+                        <button type="button" onClick={() => handleNavigate("/documentos-firma")}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-green-200 bg-green-50 text-[#006b2e] lg:hidden"
+                            aria-label="Documentos para firmar" title="Documentos para firmar">
+                            <FileCheck2 className="h-5 w-5" />
+                        </button>
+                    )}
 
                     <div className="min-w-0">
                         <p className="text-xs font-black uppercase tracking-[0.28em] text-[#006b2e]">

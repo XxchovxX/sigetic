@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SIGETIC.Api.Endpoints;
+using SIGETIC.Api.Firmas;
 using SIGETIC.Infrastructure;
 using SIGETIC.Infrastructure.Persistence;
 
@@ -28,6 +29,8 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddDocumentosFirma();
+PdfFirma.ConfigurarFuentes();
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
@@ -172,6 +175,7 @@ app.UseCors("SigeticWeb");
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapGet("/", () =>
 {
@@ -221,6 +225,7 @@ app.MapConsumibleEndpoints();
 app.MapTicketEndpoints();
 app.MapProgramacionMantenimientoEndpoints();
 app.MapFormacionEndpoints();
+app.MapDocumentosFirma();
 app.MapAnaliticaEndpoints();
 app.MapDashboardEndpoints();
 app.MapAuditoriaEndpoints();
