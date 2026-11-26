@@ -13,40 +13,6 @@ internal static class PdfFirma
 
     public static void ConfigurarFuentes() => GlobalFontSettings.FontResolver = new FuentesFirma();
 
-    public static byte[] CrearFormato(Guid id, IReadOnlyList<(SeccionTh122 Seccion, string[][] Filas)> secciones,
-        IReadOnlyList<FirmanteDocumento> firmantes, DateTimeOffset creado)
-    {
-        using var documento = new PdfDocument();
-        documento.Info.Title = $"TH-F-122 | {PlantillaTh122.Titulo}";
-        using var pagina = new Paginas(documento, "TH-F-122  |  Versión 01  |  Noviembre de 2026", id);
-        pagina.Titulo(PlantillaTh122.Titulo);
-        pagina.Texto($"Registro generado en SIGETIC el {FechaColombia(creado)}.");
-
-        foreach (var (seccion, filas) in secciones)
-        {
-            pagina.Subtitulo(seccion.Titulo);
-            for (var i = 0; i < filas.Length; i++)
-            {
-                if (seccion.Repetible)
-                    pagina.Etiqueta($"Registro {i + 1}");
-                for (var j = 0; j < filas[i].Length; j++)
-                {
-                    if (filas[i][j].Length > 0)
-                        pagina.Campo(seccion.Campos[j].Etiqueta, filas[i][j]);
-                }
-            }
-            if (filas.Length == 0)
-                pagina.Texto("Sin registros.");
-        }
-
-        pagina.Subtitulo("Personas asignadas para firmar");
-        foreach (var firmante in firmantes)
-            pagina.Campo(firmante.Rol, $"{firmante.Nombre}{(firmante.Cargo is null ? "" : $" | {firmante.Cargo}")}");
-        pagina.Texto("Las firmas y sus fechas se incorporan en la constancia al finalizar el trámite.");
-        pagina.Terminar();
-        return Exportar(documento);
-    }
-
     public static byte[] Importar(byte[] pdf)
     {
         try

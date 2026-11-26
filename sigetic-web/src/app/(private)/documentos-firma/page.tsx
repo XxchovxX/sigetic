@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { FileCheck2, FileText, Plus, RefreshCw } from "lucide-react";
+import { getStoredUser } from "@/lib/auth";
 import { api, fechaColombia, obtenerPdf, type Documento } from "./documentos-api";
 import NuevoDocumento, { accion, entrada, secundaria } from "./nuevo-documento";
 
@@ -78,6 +79,7 @@ export default function DocumentosFirmaPage() {
                     <Plus className="h-4 w-4" aria-hidden="true" /> Nuevo documento
                 </button>}
             </section>
+            <PlantillaOficial />
             {nuevo ? (
                 <NuevoDocumento cerrar={() => setNuevo(false)} creado={(doc) => { actualizar(doc); setNuevo(false); }} />
             ) : (
@@ -117,6 +119,59 @@ export default function DocumentosFirmaPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+function PlantillaOficial() {
+    const [pendiente, setPendiente] = useState(false);
+    const [mensaje, setMensaje] = useState("");
+    const [guardando, setGuardando] = useState(false);
+
+    useEffect(() => {
+        if (getStoredUser()?.rol !== "Administrador") return;
+        let vigente = true;
+        void api<{ instalada: boolean }>("/plantilla-oficial").then(({ instalada }) => {
+            if (vigente) setPendiente(!instalada);
+        }).catch(() => {});
+        return () => { vigente = false; };
+    }, []);
+
+    async function instalar(file: File) {
+        setGuardando(true);
+        setMensaje("");
+        try {
+            if (file.size > 135_000) throw new Error("Selecciona el Word oficial TH-F-122 versión 01.");
+            const contenido = await new Promise<string>((resolve, reject) => {
+                const lector = new FileReader();
+                lector.onload = () => resolve(String(lector.result).split(",")[1]);
+                lector.onerror = () => reject(new Error("No se pudo leer el Word."));
+                lector.readAsDataURL(file);
+            });
+            await api("/plantilla-oficial", { docxBase64: contenido });
+            setPendiente(false);
+            setMensaje("Plantilla oficial TH-F-122 instalada.");
+        } catch (error) {
+            setMensaje(error instanceof Error ? error.message : "No se pudo instalar la plantilla.");
+        } finally {
+            setGuardando(false);
+        }
+    }
+
+    if (!pendiente && !mensaje) return null;
+    return (
+        <section className={panel}>
+            {pendiente && <label className="block text-sm font-semibold">
+                Instalar Word oficial TH-F-122
+                <input type="file" accept=".docx" disabled={guardando} className={entrada}
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) void instalar(file);
+                    }} />
+            </label>}
+            {guardando && <p role="status" className="mt-2 text-sm">Instalando la plantilla…</p>}
+            {mensaje && <p role="status" className="mt-2 text-sm">{mensaje}</p>}
+        </section>
     );
 }
 

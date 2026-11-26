@@ -37,6 +37,7 @@ sigetic-api/src/SIGETIC.Api/appsettings.Production.json
 *.backup
 *.sql.gz
 backups/
+/templates/
 
 # Publicacion local
 publish/
