@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Prueba interactiva del TH-F-122 en la base aislada del piloto."""
+import argparse
 import base64
 import getpass
 import hashlib
@@ -69,6 +70,9 @@ def create_account(address, name):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--nueva-clave', action='store_true', help='Usa una contraseña de aplicación solo durante esta prueba')
+    options = parser.parse_args()
     pilot = config(PILOT_API)
     if "Database=sigetic_firmas_piloto;" not in pilot.get("ConnectionStrings__SigeticDatabase", ""):
         raise RuntimeError("La API no usa la base aislada esperada.")
@@ -79,11 +83,13 @@ def main():
     local, _, domain = username.partition("@")
     if not local or domain.lower() not in ("gmail.com", "googlemail.com"):
         raise RuntimeError("El remitente configurado no es una cuenta Gmail personal.")
-    if not prod.get("Email__SmtpPassword", "").strip():
-        raise RuntimeError("El servidor no tiene una credencial SMTP configurada.")
     print(f"Se enviarán dos códigos del documento de prueba a {local[:2]}***@{domain}, con alias distintos.")
     if input("Escribe SI para iniciar el envío de prueba: ").strip().upper() != "SI":
         return
+    password = getpass.getpass("Contraseña de aplicación nueva de Gmail: ") if options.nueva_clave else prod.get("Email__SmtpPassword", "")
+    password = "".join(password.split())
+    if len(password) != 16 or not password.isascii() or not password.isalnum():
+        raise RuntimeError("Google requiere una contraseña de aplicación de 16 caracteres.")
     env = dict(os.environ)
     settings = {
         "ConnectionStrings__SigeticDatabase": pilot["ConnectionStrings__SigeticDatabase"],
@@ -94,7 +100,7 @@ def main():
         "Firmas__ProveedorCorreo": "Gmail",
         "Email__SmtpHost": "smtp.gmail.com",
         "Email__SmtpUser": username,
-        "Email__SmtpPassword": prod["Email__SmtpPassword"],
+        "Email__SmtpPassword": password,
     }
     env.update(settings)
     arguments = [part for key in settings for part in ("-e", key)]
