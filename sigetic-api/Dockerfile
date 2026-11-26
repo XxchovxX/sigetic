@@ -12,7 +12,7 @@ RUN dotnet publish src/SIGETIC.Api/SIGETIC.Api.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libkrb5-3 \
+    && apt-get install -y --no-install-recommends libkrb5-3 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -9,6 +9,7 @@ import {
     Building2,
     CalendarClock,
     ClipboardList,
+    FileCheck2,
     CircleHelp,
     GraduationCap,
     Headset,
@@ -145,6 +146,12 @@ const menuItems: MenuItem[] = [
             ROLES.officeSecretary,
             ROLES.readOnly,
         ],
+    },
+    {
+        title: "Documentos para firmar",
+        href: "/documentos-firma",
+        icon: FileCheck2,
+        roles: Object.values(ROLES),
     },
     {
         title: "Ayuda",

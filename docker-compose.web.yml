@@ -38,6 +38,11 @@ services:
       Email__FromName: ${EMAIL_FROM_NAME:-SIGETIC}
       Email__EnableSsl: ${EMAIL_ENABLE_SSL:-true}
       Email__TicketRecipients: ${EMAIL_TICKET_RECIPIENTS:-}
+      Firmas__ProveedorCorreo: ${FIRMAS_PROVEEDOR_CORREO:-Resend}
+      Firmas__Remitente: ${FIRMAS_REMITENTE:-}
+      Firmas__GmailClaveAplicacion: ${FIRMAS_GMAIL_CLAVE_APLICACION:-}
+      Firmas__ResendApiKey: ${FIRMAS_RESEND_API_KEY:-}
+      Firmas__UrlPublica: https://${SIGETIC_DOMAIN}
       GoogleAuth__Enabled: ${GOOGLE_AUTH_ENABLED:-false}
       GoogleAuth__ClientId: ${GOOGLE_AUTH_CLIENT_ID:-}
     depends_on:
