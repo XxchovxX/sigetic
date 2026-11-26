@@ -16,7 +16,9 @@ internal sealed record ConfirmarFirma(string? Codigo, string? Sha256, bool Acept
 internal sealed record FirmaRegistrada(string Nombre, string? Cargo, string Correo, DateTimeOffset FechaUtc, string Acuerdo);
 internal sealed record RetoFirma(Guid Id, string Correo, string Mac, DateTimeOffset SolicitadoUtc, bool Enviado, int Intentos);
 internal sealed record FirmanteDocumento(Guid Id, string Nombre, string? Cargo, string Rol, RetoFirma? Reto = null, FirmaRegistrada? Firma = null);
-internal sealed record DatosDocumento(string Titulo, string Tipo, string Sha256, FirmanteDocumento[] Firmantes, DateTimeOffset? CanceladoUtc = null, string? Sha256Final = null);
+internal sealed record EliminacionDocumento(Guid UsuarioId, DateTimeOffset FechaUtc);
+internal sealed record DatosDocumento(string Titulo, string Tipo, string Sha256, FirmanteDocumento[] Firmantes,
+    DateTimeOffset? CanceladoUtc = null, string? Sha256Final = null, EliminacionDocumento? Eliminacion = null);
 internal sealed record DocumentoFirma(Guid Id, Guid Creador, DateTimeOffset CreadoUtc, int Revision, DatosDocumento Datos, byte[]? Original, byte[]? Final);
 internal sealed class ErrorFirma(int status, string message) : Exception(message)
 {
@@ -37,7 +39,8 @@ internal sealed class DocumentosFirmaService(
         var documentos = new List<object>();
         await using var cmd = await ComandoAsync("""
             SELECT id, creador_id, creado_utc, revision, datos::text
-            FROM documentos_firma WHERE creador_id = @usuario OR firmantes @> ARRAY[@usuario]
+            FROM documentos_firma WHERE (creador_id = @usuario OR firmantes @> ARRAY[@usuario])
+                AND datos->>'eliminacion' IS NULL
             ORDER BY creado_utc DESC, id LIMIT 100
             """, ct, ("usuario", usuarioId));
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -216,6 +219,24 @@ internal sealed class DocumentosFirmaService(
         return usuario is { PerfilCompleto: true } ? usuario : throw new ErrorFirma(403, "Se requiere una cuenta activa con el perfil completo.");
     }
 
+    public async Task EliminarAsync(Guid usuarioId, Guid id, CancellationToken ct)
+    {
+        var usuario = await db.Usuarios.AsNoTracking().Include(u => u.Rol)
+            .SingleOrDefaultAsync(u => u.Id == usuarioId && u.Activo, ct);
+        if (usuario is not { PerfilCompleto: true, Rol: { Nombre: "Administrador", Activo: true } })
+            throw new ErrorFirma(403, "Solo un administrador puede eliminar documentos.");
+
+        var documento = await ObtenerAsync(usuarioId, id, ct);
+        if (documento.Datos.Sha256Final is not null || documento.Datos.Firmantes.Any(f => f.Firma is not null))
+            throw new ErrorFirma(409, "El documento ya tiene una firma registrada.");
+
+        await GuardarAsync(documento, documento.Datos with
+        {
+            Eliminacion = new(usuarioId, DateTimeOffset.UtcNow),
+            Firmantes = documento.Datos.Firmantes.Select(f => f with { Reto = null }).ToArray()
+        }, ct);
+    }
+
     private async Task<Usuario> FirmantePorCorreoAsync(string? entrada, CancellationToken ct)
     {
         var correo = entrada?.Trim().ToLowerInvariant();
@@ -234,6 +255,7 @@ internal sealed class DocumentosFirmaService(
             : "SELECT id, creador_id, creado_utc, revision, datos::text";
         await using var cmd = await ComandoAsync(sql + """
              FROM documentos_firma WHERE id = @id AND (creador_id = @usuario OR firmantes @> ARRAY[@usuario])
+                AND datos->>'eliminacion' IS NULL
             """, ct, ("id", id), ("usuario", usuarioId));
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         return await reader.ReadAsync(ct)

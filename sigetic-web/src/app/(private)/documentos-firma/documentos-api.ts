@@ -31,12 +31,12 @@ export type Documento = {
     firmantes: Array<{ nombre: string; cargo?: string; rol: string; fechaUtc?: string }>;
 };
 
-async function solicitar(ruta: string, body?: object) {
+async function solicitar(ruta: string, body?: object, method = body ? "POST" : "GET") {
     const token = getToken();
     if (!token) throw new Error("Inicia sesión para continuar.");
     const response = await fetch(`/api/documentos-firma${ruta}`, {
         headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
-        method: body ? "POST" : "GET",
+        method,
         body: body ? JSON.stringify(body) : undefined,
         cache: "no-store",
     });
@@ -56,6 +56,10 @@ export async function api<T>(ruta = "", body?: object): Promise<T> {
 
 export async function obtenerPdf(id: string, final: boolean) {
     return (await solicitar(`/${id}/pdf?final=${final}`)).blob();
+}
+
+export async function eliminarDocumento(id: string) {
+    await solicitar(`/${id}`, undefined, "DELETE");
 }
 
 export const fechaColombia = new Intl.DateTimeFormat("es-CO", {

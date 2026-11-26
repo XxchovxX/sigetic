@@ -68,6 +68,11 @@ public static class DocumentosFirmaEndpoints
             .RequireRateLimiting(Limite);
         group.MapPost("/{id:guid}/cancelar", async (Guid id, ClaimsPrincipal user, DocumentosFirmaService service, CancellationToken ct) =>
             Results.Ok(await service.CancelarAsync(UsuarioId(user), id, ct)));
+        group.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal user, DocumentosFirmaService service, CancellationToken ct) =>
+        {
+            await service.EliminarAsync(UsuarioId(user), id, ct);
+            return Results.NoContent();
+        }).RequireAuthorization(policy => policy.RequireRole("Administrador"));
     }
 
     private static Guid UsuarioId(ClaimsPrincipal user) =>

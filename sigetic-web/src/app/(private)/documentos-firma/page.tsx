@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { FileCheck2, FileText, Plus, RefreshCw } from "lucide-react";
-import { api, fechaColombia, obtenerPdf, type Documento } from "./documentos-api";
+import { getStoredUser } from "@/lib/auth";
+import { api, eliminarDocumento, fechaColombia, obtenerPdf, type Documento } from "./documentos-api";
 import NuevoDocumento, { accion, entrada, secundaria } from "./nuevo-documento";
 
 const panel = "rounded-3xl border border-slate-200 bg-white p-5 shadow-sm";
@@ -22,6 +23,7 @@ export default function DocumentosFirmaPage() {
     const [consulta, setConsulta] = useState("");
     const [ocupado, setOcupado] = useState(true);
     const [error, setError] = useState("");
+    const [aviso, setAviso] = useState("");
     const actual = documentos.find((doc) => doc.id === seleccion);
 
     useEffect(() => {
@@ -43,8 +45,15 @@ export default function DocumentosFirmaPage() {
         setSeleccion(doc.id);
     }
 
+    function quitarDeBandeja(id: string) {
+        setDocumentos((p) => p.filter((doc) => doc.id !== id));
+        setSeleccion((p) => p === id ? "" : p);
+        setAviso("Documento eliminado de la bandeja.");
+    }
+
     async function cargar(evento?: FormEvent<HTMLFormElement>) {
         evento?.preventDefault();
+        setAviso("");
         setOcupado(true);
         setError("");
         try {
@@ -78,6 +87,7 @@ export default function DocumentosFirmaPage() {
                     <Plus className="h-4 w-4" aria-hidden="true" /> Diligenciar documento
                 </button>}
             </section>
+            {aviso && <p className={panel} role="status">{aviso}</p>}
             {nuevo ? (
                 <NuevoDocumento cerrar={() => setNuevo(false)} creado={(doc) => { actualizar(doc); setNuevo(false); }} />
             ) : (
@@ -112,7 +122,7 @@ export default function DocumentosFirmaPage() {
                             ))}
                         </ul>
                     </section>
-                    {actual ? <Detalle key={actual.id} doc={actual} actualizar={actualizar} /> :
+                    {actual ? <Detalle key={actual.id} doc={actual} actualizar={actualizar} quitarDeBandeja={quitarDeBandeja} /> :
                         <p className={`${panel} text-sm text-slate-600`}>Selecciona un documento para revisar su contenido o consultar su constancia.</p>}
                 </div>
             )}
@@ -120,7 +130,13 @@ export default function DocumentosFirmaPage() {
     );
 }
 
-function Detalle({ doc, actualizar }: { doc: Documento; actualizar: (doc: Documento) => void }) {
+function Detalle({ doc, actualizar, quitarDeBandeja }: {
+    doc: Documento;
+    actualizar: (doc: Documento) => void;
+    quitarDeBandeja: (id: string) => void;
+}) {
+    const puedeEliminar = getStoredUser()?.rol === "Administrador" &&
+        !doc.sha256Final && doc.firmantes.every((firmante) => !firmante.fechaUtc);
     const [pdf, setPdf] = useState<{ url: string; final: boolean } | null>(null);
     const [enviado, setEnviado] = useState<{ correo: string; venceUtc: string } | null>(null);
     const [codigo, setCodigo] = useState("");
@@ -208,6 +224,16 @@ function Detalle({ doc, actualizar }: { doc: Documento; actualizar: (doc: Docume
                             void operar(async () => actualizar(await api<Documento>(`/${doc.id}/cancelar`, {})));
                         }
                     }}>Cancelar solicitud</button>}
+                {puedeEliminar && <button type="button"
+                    className={`${secundaria} !border-red-200 !text-red-700 hover:!bg-red-50`} disabled={ocupado}
+                    onClick={() => {
+                        if (window.confirm("¿Eliminar este documento de las bandejas de todos sus firmantes? Los códigos pendientes quedarán invalidados.")) {
+                            void operar(async () => {
+                                await eliminarDocumento(doc.id);
+                                quitarDeBandeja(doc.id);
+                            });
+                        }
+                    }}>Eliminar documento</button>}
             </div>
             {pdf && (
                 <div className="space-y-2">
