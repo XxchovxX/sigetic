@@ -75,7 +75,7 @@ export default function DocumentosFirmaPage() {
                     <p className="mt-2 max-w-xl text-sm text-green-50">Revisa tus documentos, confirma tu firma por correo y consulta las constancias de SIGETIC.</p>
                 </div>
                 {!nuevo && <button type="button" onClick={() => setNuevo(true)} className={`${secundaria} inline-flex items-center gap-2`}>
-                    <Plus className="h-4 w-4" aria-hidden="true" /> Nuevo documento
+                    <Plus className="h-4 w-4" aria-hidden="true" /> Diligenciar documento
                 </button>}
             </section>
             {nuevo ? (
