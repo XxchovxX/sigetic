@@ -12,6 +12,7 @@ public static class DocumentosFirmaEndpoints
     public static void AddDocumentosFirma(this IServiceCollection services)
     {
         services.AddScoped<DocumentosFirmaService>();
+        services.AddScoped<CorreoFirma>();
         services.AddHttpClient("FirmasCorreo", client => client.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddRateLimiter(options =>

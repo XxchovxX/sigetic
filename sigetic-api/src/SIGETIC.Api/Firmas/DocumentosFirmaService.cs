@@ -24,7 +24,7 @@ internal sealed class ErrorFirma(int status, string message) : Exception(message
 }
 
 internal sealed class DocumentosFirmaService(
-    SigeticDbContext db, IConfiguration configuration, IHttpClientFactory clients, ILogger<DocumentosFirmaService> logger)
+    SigeticDbContext db, IConfiguration configuration, CorreoFirma correoFirma, ILogger<DocumentosFirmaService> logger)
 {
     private const int MaxPdf = 4 * 1024 * 1024;
     private const string Acuerdo = "Acepto usar la firma electrónica de SIGETIC y manifiesto mi aprobación del contenido de la versión del documento identificada por la huella SHA-256.";
@@ -119,10 +119,7 @@ internal sealed class DocumentosFirmaService(
         if (firmante.Reto is { } anterior && ahora < anterior.SolicitadoUtc.AddMinutes(1))
             throw new ErrorFirma(429, "Espera un minuto antes de solicitar otro código.");
 
-        var apiKey = configuration["Firmas:ResendApiKey"];
-        var remitente = configuration["Firmas:Remitente"];
-        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(remitente) ||
-            !MailAddress.TryCreate(remitente, out _) || !MailAddress.TryCreate(usuario.Correo, out _))
+        if (!correoFirma.Configurado || !MailAddress.TryCreate(usuario.Correo, out var destinatario))
             throw new ErrorFirma(503, "El correo de firma no está disponible. Comunícate con el administrador de SIGETIC.");
 
         var codigo = RandomNumberGenerator.GetInt32(1_000_000).ToString("D6", CultureInfo.InvariantCulture);
@@ -131,21 +128,10 @@ internal sealed class DocumentosFirmaService(
         await GuardarAsync(documento, CambiarFirmante(documento, firmante with { Reto = reto }), ct);
         try
         {
-            using var envio = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
-            envio.Headers.Authorization = new("Bearer", apiKey);
-            envio.Content = JsonContent.Create(new
-            {
-                from = remitente,
-                to = new[] { usuario.Correo },
-                subject = "SIGETIC | Código para firmar un documento",
-                text = $"Tu código es {codigo}. Vence en 10 minutos y solo sirve para el documento {id:N}.\n\n" +
-                    "Ingresa el código únicamente en SIGETIC para confirmar tu firma. Si no solicitaste el código, ignora este correo."
-            });
-            using var cliente = clients.CreateClient("FirmasCorreo");
-            using var respuesta = await cliente.SendAsync(envio, HttpCompletionOption.ResponseHeadersRead, ct);
-            respuesta.EnsureSuccessStatusCode();
+            await correoFirma.EnviarAsync(destinatario, codigo, id, ct);
         }
-        catch (Exception error) when (error is HttpRequestException || error is OperationCanceledException && !ct.IsCancellationRequested)
+        catch (Exception error) when (!ct.IsCancellationRequested &&
+            error is (HttpRequestException or SmtpException or OperationCanceledException))
         {
             logger.LogWarning("No fue posible enviar el código de firma del documento {DocumentoId}.", id);
             throw new ErrorFirma(503, "El servicio de correo no pudo enviar el código. Vuelve a intentarlo en un minuto.");
