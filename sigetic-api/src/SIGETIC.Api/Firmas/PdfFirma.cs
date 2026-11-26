@@ -251,9 +251,15 @@ internal static class PdfFirma
                 "TRANSFERENCIA DEL CONOCIMIENTO",
                 "INSTITUCIONAL"
             };
+            const double rellenoTitulo = 9;
+            var anchoUtil = anchoTitulo - rellenoTitulo * 2;
+            var anchoMaximo = titulo.Max(texto => lienzo.MeasureString(texto, negrita).Width);
+            var fuenteTitulo = anchoMaximo > anchoUtil
+                ? new XFont("SIGETIC", negrita.Size * anchoUtil / anchoMaximo, XFontStyleEx.Bold)
+                : negrita;
             for (var i = 0; i < titulo.Length; i++)
-                lienzo.DrawString(titulo[i], negrita, XBrushes.Black,
-                    new XRect(tituloX, superior + 16 + i * 14, anchoTitulo, 14), XStringFormats.Center);
+                lienzo.DrawString(titulo[i], fuenteTitulo, XBrushes.Black,
+                    new XRect(tituloX + rellenoTitulo, superior + 16 + i * 14, anchoUtil, 14), XStringFormats.Center);
 
             var datos = new (string Texto, int Y)[] {
                 ("CÓDIGO: TH-F-122", 11),

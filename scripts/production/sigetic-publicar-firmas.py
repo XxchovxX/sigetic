@@ -14,7 +14,7 @@ import time
 PROD = Path("/opt/sigetic")
 RELEASE = Path(__file__).resolve().parents[2]
 BASE = "89f73a3b96c3da31bbfce57018a4e27313348bc9"
-BASE_PLANTILLA = "5698b48967e6a0cb87b73ecb42fc7f3c4060584b"
+BASE_PLANTILLA = "d063ee5c716fe1a09e2f4f3769f6045c01ce692d"
 
 
 def run(*args, **kwargs):
