@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { FileCheck2, FileText, Plus, RefreshCw } from "lucide-react";
 import { getStoredUser } from "@/lib/auth";
 import { api, eliminarDocumento, fechaColombia, obtenerPdf, type Documento } from "./documentos-api";
@@ -218,6 +219,7 @@ function Detalle({ doc, actualizar, quitarDeBandeja }: {
                     <FileText className="h-4 w-4" aria-hidden="true" /> Revisar PDF
                 </button>
                 {doc.sha256Final && <button type="button" className={accion} disabled={ocupado} onClick={() => void operar(() => abrirPdf(true))}>Abrir PDF con constancia</button>}
+                {doc.sha256Final && <Link className={secundaria} href={`/verificar-documento/${referencia(doc.id)}`}>Verificación pública</Link>}
                 {doc.puedeCancelar && <button type="button" className={secundaria} disabled={ocupado}
                     onClick={() => {
                         if (window.confirm("¿Cancelar este documento? Tendrás que registrar uno nuevo para solicitar las firmas.")) {

@@ -81,7 +81,7 @@ internal sealed class DocumentosFirmaService(
             throw new ErrorFirma(409, "Tu cuenta necesita un correo válido para firmar.");
 
         var pdf = esFormato
-            ? PdfFirma.CrearFormato(id, PlantillaTh122.Normalizar(request.Campos!, usuario, recibe!), firmantes, creado)
+            ? PdfFirma.CrearFormato(id, PlantillaTh122.Normalizar(request.Campos!, usuario, recibe!), firmantes, creado, UrlVerificacion(id))
             : PdfFirma.Importar(DecodificarPdf(request.PdfBase64!));
         var datos = new DatosDocumento(titulo, esFormato ? "TH-F-122" : "PDF", Hash(pdf), firmantes.ToArray());
         var documento = new DocumentoFirma(id, usuarioId, creado, 0, datos, pdf, null);
@@ -191,7 +191,7 @@ internal sealed class DocumentosFirmaService(
         byte[]? final = null;
         if (datos.Firmantes.All(f => f.Firma is not null))
         {
-            final = PdfFirma.AgregarConstancia(documento.Original!, id, datos);
+            final = PdfFirma.AgregarConstancia(documento.Original!, id, datos, UrlVerificacion(id));
             datos = datos with { Sha256Final = Hash(final) };
         }
 
@@ -235,6 +235,30 @@ internal sealed class DocumentosFirmaService(
             Eliminacion = new(usuarioId, DateTimeOffset.UtcNow),
             Firmantes = documento.Datos.Firmantes.Select(f => f with { Reto = null }).ToArray()
         }, ct);
+    }
+
+    public async Task<object?> VerificarPublicamenteAsync(Guid id, CancellationToken ct)
+    {
+        await using var cmd = await ComandoAsync("""
+            SELECT datos::text FROM documentos_firma
+            WHERE id = @id AND pdf_final IS NOT NULL
+                AND datos->>'eliminacion' IS NULL AND datos->>'canceladoUtc' IS NULL
+            """, ct, ("id", id));
+        if (await cmd.ExecuteScalarAsync(ct) is not string json)
+            return null;
+
+        var datos = JsonSerializer.Deserialize<DatosDocumento>(json, Json);
+        if (datos is not { Sha256Final.Length: 64, Firmantes.Length: > 0 } ||
+            datos.Firmantes.Any(f => f.Firma is null))
+            return null;
+
+        return new
+        {
+            id,
+            datos.Tipo,
+            huellaSha256 = datos.Sha256Final,
+            fechaFirmaUtc = datos.Firmantes.Max(f => f.Firma!.FechaUtc)
+        };
     }
 
     private async Task<Usuario> FirmantePorCorreoAsync(string? entrada, CancellationToken ct)
@@ -335,6 +359,17 @@ internal sealed class DocumentosFirmaService(
     }
 
     private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
+
+    private string? UrlVerificacion(Guid id)
+    {
+        var origen = configuration["Firmas:UrlPublica"] ?? configuration["Cors:AllowedOrigins:0"];
+        if (!Uri.TryCreate(origen, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback)) ||
+            uri.UserInfo.Length != 0)
+            return null;
+
+        return new Uri(uri, $"/verificar-documento/{id:N}").AbsoluteUri;
+    }
 
     private static byte[] DecodificarPdf(string texto)
     {

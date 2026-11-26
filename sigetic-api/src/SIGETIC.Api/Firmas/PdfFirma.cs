@@ -3,6 +3,7 @@ using PdfSharp.Drawing;
 using PdfSharp.Fonts;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
+using QRCoder;
 
 namespace SIGETIC.Api.Firmas;
 
@@ -14,7 +15,7 @@ internal static class PdfFirma
     public static void ConfigurarFuentes() => GlobalFontSettings.FontResolver = new FuentesFirma();
 
     public static byte[] CrearFormato(Guid id, IReadOnlyList<(SeccionTh122 Seccion, string[][] Filas)> secciones,
-        IReadOnlyList<FirmanteDocumento> firmantes, DateTimeOffset creado)
+        IReadOnlyList<FirmanteDocumento> firmantes, DateTimeOffset creado, string? urlVerificacion)
     {
         using var documento = new PdfDocument();
         documento.Info.Title = $"TH-F-122 | {PlantillaTh122.Titulo}";
@@ -38,10 +39,11 @@ internal static class PdfFirma
                 pagina.Texto("Sin registros.");
         }
 
-        pagina.Subtitulo("Personas asignadas para firmar");
+        pagina.Subtitulo("Personas asignadas para firmar", urlVerificacion is null ? 55 : 290);
         foreach (var firmante in firmantes)
             pagina.Campo(firmante.Rol, $"{firmante.Nombre}{(firmante.Cargo is null ? "" : $" | {firmante.Cargo}")}");
         pagina.Texto("Las firmas y sus fechas se incorporan en la constancia al finalizar el trámite.");
+        pagina.CodigoVerificacion(urlVerificacion, "Disponible al completarse las firmas.");
         pagina.Completar();
         return Exportar(documento);
     }
@@ -69,7 +71,7 @@ internal static class PdfFirma
         }
     }
 
-    public static byte[] AgregarConstancia(byte[] pdf, Guid id, DatosDocumento datos)
+    public static byte[] AgregarConstancia(byte[] pdf, Guid id, DatosDocumento datos, string? urlVerificacion)
     {
         using var flujo = new MemoryStream(pdf);
         using var documento = PdfReader.Open(flujo, PdfDocumentOpenMode.Modify);
@@ -89,7 +91,7 @@ internal static class PdfFirma
         pagina.Subtitulo("Verificación en SIGETIC");
         pagina.Campo("Identificador del documento", id.ToString("N"));
         pagina.Campo("Huella SHA-256 de la versión aprobada", datos.Sha256);
-        pagina.Texto("Las personas asignadas pueden consultar el registro y cotejar este PDF con la copia archivada en Documentos para firmar.");
+        pagina.CodigoVerificacion(urlVerificacion, "Escanea el código y coteja el PDF firmado.");
         pagina.Completar();
         return Exportar(documento);
     }
@@ -132,7 +134,7 @@ internal static class PdfFirma
         }
 
         public void Titulo(string texto) { Escribir(texto, encabezado, Verde, 23); y += 9; }
-        public void Subtitulo(string texto) { AsegurarEspacio(55); y += 13; Escribir(texto, negrita, Verde, 16); }
+        public void Subtitulo(string texto, double espacio = 55) { AsegurarEspacio(espacio); y += 13; Escribir(texto, negrita, Verde, 16); }
         public void Etiqueta(string texto) { AsegurarEspacio(44); Escribir(texto, negrita, XBrushes.Black, 15); }
         public void Texto(string texto) { Escribir(texto, regular, XBrushes.Black, 15); y += 4; }
 
@@ -140,6 +142,30 @@ internal static class PdfFirma
         {
             Etiqueta(etiqueta);
             Texto(valor);
+        }
+
+        public void CodigoVerificacion(string? url, string descripcion)
+        {
+            if (url is null)
+                return;
+
+            const double lado = 122;
+            AsegurarEspacio(lado + 20);
+            y += 8;
+            var lienzo = grafica!;
+            using var generador = new QRCodeGenerator();
+            using var datos = generador.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+            var matriz = datos.ModuleMatrix;
+            var modulo = lado / matriz.Count;
+            lienzo.DrawRectangle(XBrushes.White, Margen, y, lado, lado);
+            for (var fila = 0; fila < matriz.Count; fila++)
+                for (var columna = 0; columna < matriz.Count; columna++)
+                    if (matriz[fila][columna])
+                        lienzo.DrawRectangle(XBrushes.Black, Margen + columna * modulo, y + fila * modulo, modulo + .02, modulo + .02);
+
+            lienzo.DrawString("Verificar en SIGETIC", negrita, Verde, new XPoint(Margen + lado + 12, y + 48));
+            lienzo.DrawString(descripcion, regular, XBrushes.Black, new XPoint(Margen + lado + 12, y + 66));
+            y += lado + 10;
         }
 
         private void Escribir(string texto, XFont letra, XBrush color, double paso)

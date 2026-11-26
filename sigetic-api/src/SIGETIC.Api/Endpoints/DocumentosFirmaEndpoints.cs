@@ -31,6 +31,14 @@ public static class DocumentosFirmaEndpoints
 
     public static void MapDocumentosFirma(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/documentos-firma/verificar/{id:guid}", async (Guid id, DocumentosFirmaService service,
+            HttpContext context, CancellationToken ct) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            var constancia = await service.VerificarPublicamenteAsync(id, ct);
+            return constancia is null ? Results.NotFound() : Results.Ok(constancia);
+        }).AllowAnonymous();
+
         var group = app.MapGroup("/api/documentos-firma")
             .WithTags("Documentos para firmar")
             .RequireAuthorization(policy => policy.RequireClaim("perfil_completo", "true"));
